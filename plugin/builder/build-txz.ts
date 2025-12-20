@@ -11,6 +11,7 @@ import { apiDir } from "./utils/paths";
 import { getVendorBundleName, getVendorFullPath } from "./build-vendor-store";
 import { getAssetUrl } from "./utils/bucket-urls";
 import { validateStandaloneManifest, getStandaloneManifestPath } from "./utils/manifest-validator";
+import { downloadMonitoringTools } from "./utils/monitor-tools";
 
 
 // Check for manifest files in expected locations
@@ -176,6 +177,9 @@ const validateSourceDir = async (validatedEnv: TxzEnv) => {
 
 const buildTxz = async (validatedEnv: TxzEnv) => {
   await validateSourceDir(validatedEnv);
+
+  // Call during TXZ build process
+  await downloadMonitoringTools(sourceDir);
   
   // Use version from validated environment
   const version = validatedEnv.apiVersion;
