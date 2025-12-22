@@ -179,6 +179,8 @@ const buildTxz = async (validatedEnv: TxzEnv) => {
   await validateSourceDir(validatedEnv);
 
   // Call during TXZ build process
+
+  const sourceDir = join(startingDir, "source");
   await downloadMonitoringTools(sourceDir);
   
   // Use version from validated environment

@@ -23,21 +23,21 @@ export class TemperatureService implements OnModuleInit {
             await this.initializeLmSensors();
         }
 
-        if (this.availableTools.has('smartctl')) {
-            // Already available through DisksService
-        }
+        //if (this.availableTools.has('smartctl')) {
+        //    // Already available through DisksService
+        //}
 
-        if (this.availableTools.has('nvidia-smi')) {
-            await this.initializeNvidiaMonitoring();
-        }
+        //if (this.availableTools.has('nvidia-smi')) {
+        //    await this.initializeNvidiaMonitoring();
+        //}
     }
 
     private async initializeBundledTools(): Promise<void> {
         const tools = [
             'sensors', // lm-sensors
-            'smartctl', // smartmontools
-            'nvidia-smi', // NVIDIA driver
-            'ipmitool', // IPMI tools
+            //'smartctl', // smartmontools
+            //'nvidia-smi', // NVIDIA driver
+            //'ipmitool', // IPMI tools
         ];
 
         for (const tool of tools) {

@@ -1,32 +1,43 @@
+import { join } from 'path';
+import { promises as fs } from 'fs';
+import crypto from 'crypto';
+
 // Enhancement to the plugin build process
 // Location: plugin/builder/build-txz.ts
 
 // Add function to download monitoring tools during build
-const downloadMonitoringTools = async (targetDir: string) => {
+export const downloadMonitoringTools = async (targetDir: string) => {
   console.log("Downloading temperature monitoring tools from safe sources...");
   
-  const tools = [
-    {
-      name: 'sensors',
-      url: 'https://github.com/lm-sensors/lm-sensors/releases/download/v3.6.0/sensors-3.6.0-x86_64',
-      sha256: 'abc123...', // Verify integrity
-    },
-    {
-      name: 'smartctl', 
-      url: 'https://sourceforge.net/projects/smartmontools/files/smartmontools/7.4/smartctl-7.4-x86_64',
-      sha256: 'def456...', // Verify integrity
-    },
-    {
-      name: 'nvidia-smi',
-      url: 'https://developer.nvidia.com/downloads/nvidia-smi-545.29.06-x86_64',
-      sha256: 'ghi789...', // Verify integrity
+  const tools_to_download = [
+    //{
+    //  name: 'sensors',
+    //  url: 'https://github.com/lm-sensors/lm-sensors/releases/download/v3.6.0/sensors-3.6.0-x86_64',
+    //  sha256: 'abc123', // Verify integrity
+    //},
+    //{
+    //  name: 'smartctl', 
+    //  url: 'https://sourceforge.net/projects/smartmontools/files/smartmontools/7.4/smartctl-7.4-x86_64',
+    //  sha256: 'def456...', // Verify integrity
+    //},
+    //{
+    //  name: 'nvidia-smi',
+    //  url: 'https://developer.nvidia.com/downloads/nvidia-smi-545.29.06-x86_64',
+    //  sha256: 'ghi789...', // Verify integrity
+    //}
+  ];
+
+  const installed_tools = [
+    { 
+        name: 'sensors',
+        path: '/usr/sbin/sensors' 
     }
   ];
 
   const monitoringDir = join(targetDir, 'usr/local/emhttp/plugins/unraid-api/monitoring');
   await fs.mkdir(monitoringDir, { recursive: true });
 
-  for (const tool of tools) {
+  for (const tool of tools_to_download) {
     console.log(`Downloading ${tool.name}...`);
     const response = await fetch(tool.url);
     const buffer = await response.arrayBuffer();
@@ -45,4 +56,13 @@ const downloadMonitoringTools = async (targetDir: string) => {
     
     console.log(`✓ ${tool.name} downloaded and verified`);
   }
+
+  for (const tool of installed_tools) {
+      try {
+          await fs.access(tool.path);
+          console.log(`✓ ${tool.name} found at ${tool.path}`);
+      } catch {
+          console.warn(`⚠ ${tool.name} not found on this system`);
+      }
+    }
 };
