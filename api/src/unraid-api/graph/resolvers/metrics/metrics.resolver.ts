@@ -21,6 +21,7 @@ export class MetricsResolver implements OnModuleInit {
         private readonly cpuService: CpuService,
         private readonly cpuTopologyService: CpuTopologyService,
         private readonly memoryService: MemoryService,
+        private readonly temperatureService: TemperatureService,
         private readonly subscriptionTracker: SubscriptionTrackerService,
         private readonly subscriptionHelper: SubscriptionHelperService
     ) {}

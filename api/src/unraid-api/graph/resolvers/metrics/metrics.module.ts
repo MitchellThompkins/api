@@ -7,7 +7,7 @@ import { ServicesModule } from '@app/unraid-api/graph/services/services.module.j
 
 @Module({
     imports: [ServicesModule, CpuModule],
-    providers: [MetricsResolver, MemoryService],
+    providers: [MetricsResolver, MemoryService, TemperatureService],
     exports: [MetricsResolver],
 })
 export class MetricsModule {}
