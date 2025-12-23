@@ -77,6 +77,18 @@ export class MetricsResolver implements OnModuleInit {
             },
             2000
         );
+
+        // Add temperature polling with 5 second interval
+        this.subscriptionTracker.registerTopic(
+            PUBSUB_CHANNEL.TEMPERATURE_METRICS,
+            async () => {
+                const payload = await this.temperatureService.getMetrics();
+                pubsub.publish(PUBSUB_CHANNEL.TEMPERATURE_METRICS, {
+                    systemMetricsTemperature: payload,
+                });
+            },
+            5000
+        );
     }
 
     @Query(() => Metrics)
@@ -134,5 +146,22 @@ export class MetricsResolver implements OnModuleInit {
     })
     public async systemMetricsMemorySubscription() {
         return this.subscriptionHelper.createTrackedSubscription(PUBSUB_CHANNEL.MEMORY_UTILIZATION);
+    }
+
+    @ResolveField(() => TemperatureMetrics, { nullable: true })
+    public async temperature(): Promise<TemperatureMetrics> {
+        return this.temperatureService.getMetrics();
+    }
+    @Subscription(() => TemperatureMetrics, {
+        name: 'systemMetricsTemperature',
+        resolve: (value) => value.systemMetricsTemperature,
+    })
+    @UsePermissions({
+        action: AuthActionVerb.READ,
+        resource: Resource.INFO,
+        possession: AuthPossession.ANY,
+    })
+    public async systemMetricsTemperatureSubscription() {
+        return this.subscriptionHelper.createTrackedSubscription(PUBSUB_CHANNEL.TEMPERATURE_METRICS);
     }
 }
