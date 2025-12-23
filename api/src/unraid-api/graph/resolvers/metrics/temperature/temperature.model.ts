@@ -5,11 +5,6 @@ import { Field, Float, Int, ObjectType, registerEnumType } from '@nestjs/graphql
 import { Node } from '@unraid/shared/graphql.model.js';
 import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 
-// Extend existing Metrics model
-// Location: api/src/unraid-api/graph/resolvers/metrics/metrics.model.ts
-
-import { TemperatureMetrics } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature/temperature.model.js';
-
 export enum TemperatureUnit {
     CELSIUS = 'CELSIUS',
     FAHRENHEIT = 'FAHRENHEIT',
@@ -131,15 +126,4 @@ export class TemperatureMetrics extends Node {
 
     @Field(() => TemperatureSummary, { description: 'Temperature summary' })
     summary!: TemperatureSummary;
-}
-
-@ObjectType({ implements: () => Node })
-export class Metrics extends Node {
-    // ... existing fields ...
-
-    @Field(() => TemperatureMetrics, {
-        nullable: true,
-        description: 'Temperature metrics',
-    })
-    temperature?: TemperatureMetrics;
 }
