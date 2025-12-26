@@ -152,7 +152,7 @@ export class MetricsResolver implements OnModuleInit {
     }
 
     @ResolveField(() => TemperatureMetrics, { nullable: true })
-    public async temperature(): Promise<TemperatureMetrics> {
+    public async temperature(): Promise<TemperatureMetrics | null> {
         return this.temperatureService.getMetrics();
     }
     @Subscription(() => TemperatureMetrics, {

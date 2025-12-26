@@ -1,9 +1,17 @@
-// temperature.service.ts - Use plugin-bundled binaries
 import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 
 import { execa } from 'execa';
+
+import {
+    SensorType,
+    Temperature,
+    TemperatureMetrics,
+    TemperatureSensor,
+    TemperatureStatus,
+    TemperatureUnit,
+} from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
 
 export class TemperatureService implements OnModuleInit {
     private readonly logger = new Logger(TemperatureService.name);
@@ -11,7 +19,6 @@ export class TemperatureService implements OnModuleInit {
     private availableTools: Map<string, string> = new Map();
 
     constructor(private readonly configService: ConfigService) {
-        // Use binaries bundled with the plugin
         this.binPath = this.configService.get(
             'API_MONITORING_BIN_PATH',
             '/usr/local/emhttp/plugins/unraid-api/monitoring'
@@ -19,44 +26,24 @@ export class TemperatureService implements OnModuleInit {
     }
 
     async onModuleInit() {
-        // Use bundled binaries instead of system tools
         await this.initializeBundledTools();
-
-        // Initialize sensor detection for available tools
-        //if (this.availableTools.has('sensors')) {
-        //    await this.initializeLmSensors();
-        //}
-
-        //if (this.availableTools.has('smartctl')) {
-        //    // Already available through DisksService
-        //}
-
-        //if (this.availableTools.has('nvidia-smi')) {
-        //    await this.initializeNvidiaMonitoring();
-        //}
     }
 
     private async initializeBundledTools(): Promise<void> {
-        const tools = [
-            'sensors', // lm-sensors
-            //'smartctl', // smartmontools
-            //'nvidia-smi', // NVIDIA driver
-            //'ipmitool', // IPMI tools
-        ];
+        const tools = ['sensors'];
 
         for (const tool of tools) {
             const toolPath = join(this.binPath, tool);
             try {
                 await execa(toolPath, ['--version']);
                 this.availableTools.set(tool, toolPath);
-                this.logger.log(`Temperature tool available: ${tool} at ${toolPath}`);
+                this.logger.log(`Temperature tool available: ${tool}`);
             } catch {
                 this.logger.warn(`Temperature tool not found: ${tool}`);
             }
         }
     }
 
-    // Use bundled binary paths for all executions
     private async execTool(toolName: string, args: string[]): Promise<string> {
         const toolPath = this.availableTools.get(toolName);
         if (!toolPath) {
@@ -64,5 +51,103 @@ export class TemperatureService implements OnModuleInit {
         }
         const { stdout } = await execa(toolPath, args);
         return stdout;
+    }
+
+    // ============================
+    // Public API
+    // ============================
+
+    async getMetrics(): Promise<TemperatureMetrics | null> {
+        if (!this.availableTools.has('sensors')) {
+            this.logger.debug('Temperature metrics unavailable (sensors missing)');
+            return null;
+        }
+
+        const output = await this.execTool('sensors', []);
+        const sensors = this.parseSensorsOutput(output);
+
+        if (sensors.length === 0) {
+            return null;
+        }
+
+        return {
+            id: 'temperature-metrics',
+            sensors,
+            summary: this.buildSummary(sensors),
+        };
+    }
+
+    // ============================
+    // Parsing
+    // ============================
+
+    private parseSensorsOutput(output: string): TemperatureSensor[] {
+        const lines = output.split('\n');
+        const sensors: TemperatureSensor[] = [];
+
+        for (const line of lines) {
+            // Matches: "+52.0°C"
+            const match = line.match(/(.+?):\s+\+?([0-9.]+)°C/);
+            if (!match) continue;
+
+            const name = match[1].trim();
+            const value = Number(match[2]);
+
+            const temperature: Temperature = {
+                value,
+                unit: TemperatureUnit.CELSIUS,
+                timestamp: new Date(),
+                status: this.computeStatus(value),
+            };
+
+            sensors.push({
+                id: `sensor:${name}`,
+                name,
+                type: this.inferSensorType(name),
+                current: temperature,
+            });
+        }
+
+        return sensors;
+    }
+
+    private inferSensorType(name: string): SensorType {
+        const n = name.toLowerCase();
+
+        if (n.includes('package')) return SensorType.CPU_PACKAGE;
+        if (n.includes('core')) return SensorType.CPU_CORE;
+        if (n.includes('gpu')) return SensorType.GPU;
+        if (n.includes('nvme')) return SensorType.NVME;
+        if (n.includes('board')) return SensorType.MOTHERBOARD;
+
+        return SensorType.CUSTOM;
+    }
+
+    private computeStatus(value: number): TemperatureStatus {
+        if (value >= 90) return TemperatureStatus.CRITICAL;
+        if (value >= 80) return TemperatureStatus.WARNING;
+        return TemperatureStatus.NORMAL;
+    }
+
+    // ============================
+    // Summary
+    // ============================
+
+    private buildSummary(sensors: TemperatureSensor[]) {
+        const values = sensors.map((s) => s.current.value);
+
+        const average = values.reduce((a, b) => a + b, 0) / values.length;
+
+        const hottest = sensors.reduce((a, b) => (a.current.value > b.current.value ? a : b));
+
+        const coolest = sensors.reduce((a, b) => (a.current.value < b.current.value ? a : b));
+
+        return {
+            average,
+            hottest,
+            coolest,
+            warningCount: sensors.filter((s) => s.current.status === TemperatureStatus.WARNING).length,
+            criticalCount: sensors.filter((s) => s.current.status === TemperatureStatus.CRITICAL).length,
+        };
     }
 }
