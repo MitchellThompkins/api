@@ -1,8 +1,12 @@
 // temperature.service.ts - Use plugin-bundled binaries
+import { Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 
+import { execa } from 'execa';
+
 export class TemperatureService implements OnModuleInit {
+    private readonly logger = new Logger(TemperatureService.name);
     private readonly binPath: string;
     private availableTools: Map<string, string> = new Map();
 
@@ -19,9 +23,9 @@ export class TemperatureService implements OnModuleInit {
         await this.initializeBundledTools();
 
         // Initialize sensor detection for available tools
-        if (this.availableTools.has('sensors')) {
-            await this.initializeLmSensors();
-        }
+        //if (this.availableTools.has('sensors')) {
+        //    await this.initializeLmSensors();
+        //}
 
         //if (this.availableTools.has('smartctl')) {
         //    // Already available through DisksService
