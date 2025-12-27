@@ -7,6 +7,7 @@ import { CpuTopologyService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu
 import { CpuService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu.service.js';
 import { MemoryService } from '@app/unraid-api/graph/resolvers/info/memory/memory.service.js';
 import { MetricsResolver } from '@app/unraid-api/graph/resolvers/metrics/metrics.resolver.js';
+import { TemperatureService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.service.js';
 import { SubscriptionHelperService } from '@app/unraid-api/graph/services/subscription-helper.service.js';
 import { SubscriptionTrackerService } from '@app/unraid-api/graph/services/subscription-tracker.service.js';
 
@@ -14,6 +15,7 @@ describe('MetricsResolver', () => {
     let resolver: MetricsResolver;
     let cpuService: CpuService;
     let memoryService: MemoryService;
+    let temperatureService: TemperatureService;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -168,10 +170,15 @@ describe('MetricsResolver', () => {
                 generateTelemetry: vi.fn().mockResolvedValue([{ id: 0, power: 42.5, temp: 68.3 }]),
             } satisfies Pick<CpuTopologyService, 'generateTopology' | 'generateTelemetry'>;
 
+            const temperatureServiceMock = {
+                getMetrics: vi.fn().mockResolvedValue(null),
+            } satisfies Pick<TemperatureService, 'getMetrics'>;
+
             const testModule = new MetricsResolver(
                 cpuService,
                 cpuTopologyServiceMock as unknown as CpuTopologyService,
                 memoryService,
+                temperatureServiceMock as unknown as TemperatureService,
                 subscriptionTracker as any,
                 {} as any
             );
