@@ -1,4 +1,4 @@
-import { Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { join } from 'path';
 
@@ -13,6 +13,7 @@ import {
     TemperatureUnit,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
 
+@Injectable()
 export class TemperatureService implements OnModuleInit {
     private readonly logger = new Logger(TemperatureService.name);
     private readonly binPath: string;
