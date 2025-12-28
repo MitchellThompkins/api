@@ -79,14 +79,12 @@ export class TemperatureService implements OnModuleInit {
     // ============================
     // Parsing
     // ============================
-
     private parseSensorsOutput(output: string): TemperatureSensor[] {
         const lines = output.split('\n');
         const sensors: TemperatureSensor[] = [];
 
         for (const line of lines) {
-            // Matches: "+52.0°C"
-            const match = line.match(/(.+?):\s+\+?([0-9.]+)°C/);
+            const match = line.match(/^(.+?):.*?\+([0-9.]+)°C/);
             if (!match) continue;
 
             const name = match[1].trim();
