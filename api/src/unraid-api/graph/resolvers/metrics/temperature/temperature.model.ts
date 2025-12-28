@@ -1,3 +1,5 @@
+// Location: api/src/unraid-api/graph/resolvers/metrics/temperature/temperature.model.ts
+
 import { Field, Float, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
 
 import { Node } from '@unraid/shared/graphql.model.js';
@@ -41,8 +43,8 @@ registerEnumType(SensorType, {
     description: 'Type of temperature sensor',
 });
 
-@ObjectType('TemperatureReading')
-export class Temperature {
+@ObjectType()
+export class TemperatureReading {
     @Field(() => Float, { description: 'Temperature value' })
     @IsNumber()
     value!: number;
@@ -74,16 +76,16 @@ export class TemperatureSensor extends Node {
     @IsString()
     location?: string;
 
-    @Field(() => Temperature, { description: 'Current temperature' })
-    current!: Temperature;
+    @Field(() => TemperatureReading, { description: 'Current temperature' })
+    current!: TemperatureReading;
 
-    @Field(() => Temperature, { nullable: true, description: 'Minimum recorded' })
+    @Field(() => TemperatureReading, { nullable: true, description: 'Minimum recorded' })
     @IsOptional()
-    min?: Temperature;
+    min?: TemperatureReading;
 
-    @Field(() => Temperature, { nullable: true, description: 'Maximum recorded' })
+    @Field(() => TemperatureReading, { nullable: true, description: 'Maximum recorded' })
     @IsOptional()
-    max?: Temperature;
+    max?: TemperatureReading;
 
     @Field(() => Float, { nullable: true, description: 'Warning threshold' })
     @IsOptional()

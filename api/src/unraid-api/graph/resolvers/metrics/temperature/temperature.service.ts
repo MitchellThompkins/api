@@ -6,8 +6,8 @@ import { execa } from 'execa';
 
 import {
     SensorType,
-    Temperature,
     TemperatureMetrics,
+    TemperatureReading,
     TemperatureSensor,
     TemperatureStatus,
     TemperatureUnit,
@@ -94,7 +94,7 @@ export class TemperatureService implements OnModuleInit {
             const name = match[1].trim();
             const value = Number(match[2]);
 
-            const temperature: Temperature = {
+            const temperatureReading: TemperatureReading = {
                 value,
                 unit: TemperatureUnit.CELSIUS,
                 timestamp: new Date(),
@@ -105,7 +105,7 @@ export class TemperatureService implements OnModuleInit {
                 id: `sensor:${name}`,
                 name,
                 type: this.inferSensorType(name),
-                current: temperature,
+                current: temperatureReading,
             });
         }
 
