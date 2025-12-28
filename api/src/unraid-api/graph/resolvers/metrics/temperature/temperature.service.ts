@@ -20,6 +20,7 @@ export class TemperatureService implements OnModuleInit {
     private availableTools: Map<string, string> = new Map();
 
     constructor(private readonly configService: ConfigService) {
+        // TODO(@mitchellthompkins): Make this something sensible
         this.binPath = this.configService.get(
             'API_MONITORING_BIN_PATH',
             '/usr/local/emhttp/plugins/unraid-api/monitoring'
@@ -31,17 +32,14 @@ export class TemperatureService implements OnModuleInit {
     }
 
     private async initializeBundledTools(): Promise<void> {
-        const tools = ['sensors'];
+        const systemSensors = '/usr/bin/sensors';
 
-        for (const tool of tools) {
-            const toolPath = join(this.binPath, tool);
-            try {
-                await execa(toolPath, ['--version']);
-                this.availableTools.set(tool, toolPath);
-                this.logger.log(`Temperature tool available: ${tool}`);
-            } catch {
-                this.logger.warn(`Temperature tool not found: ${tool}`);
-            }
+        try {
+            await execa(systemSensors, ['--version']);
+            this.availableTools.set('sensors', systemSensors);
+            this.logger.log(`Temperature tool available: sensors (from system path)`);
+        } catch (err) {
+            this.logger.warn(`Temperature tool not available at ${systemSensors}`, err);
         }
     }
 
