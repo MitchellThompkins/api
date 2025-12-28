@@ -1,5 +1,3 @@
-// Location: api/src/unraid-api/graph/resolvers/metrics/temperature/temperature.model.ts
-
 import { Field, Float, Int, ObjectType, registerEnumType } from '@nestjs/graphql';
 
 import { Node } from '@unraid/shared/graphql.model.js';
@@ -43,7 +41,7 @@ registerEnumType(SensorType, {
     description: 'Type of temperature sensor',
 });
 
-@ObjectType()
+@ObjectType('TemperatureReading')
 export class Temperature {
     @Field(() => Float, { description: 'Temperature value' })
     @IsNumber()
