@@ -84,7 +84,7 @@ export class TemperatureService implements OnModuleInit {
         const sensors: TemperatureSensor[] = [];
 
         for (const line of lines) {
-            const match = line.match(/^(.+?):.*?\+([0-9.]+)°C/);
+            const match = line.match(/^(.+?):.*?\+([0-9.]+)\s*°?C/);
             if (!match) continue;
 
             const name = match[1].trim();
