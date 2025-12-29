@@ -55,17 +55,17 @@ export class TemperatureService implements OnModuleInit {
     // ============================
     // Public API
     // ============================
-
     async getMetrics(): Promise<TemperatureMetrics | null> {
         if (!this.availableTools.has('sensors')) {
             this.logger.debug('Temperature metrics unavailable (sensors missing)');
             return null;
         }
 
-        const output = await this.execTool('sensors', []);
-        const sensors = this.parseSensorsOutput(output);
+        const output = await this.execTool('sensors', ['-j']);
+        const sensors = this.parseSensorsJson(output);
 
         if (sensors.length === 0) {
+            this.logger.debug('No temperature sensors detected');
             return null;
         }
 
@@ -79,30 +79,42 @@ export class TemperatureService implements OnModuleInit {
     // ============================
     // Parsing
     // ============================
-    private parseSensorsOutput(output: string): TemperatureSensor[] {
-        const lines = output.split('\n');
+    private parseSensorsJson(output: string): TemperatureSensor[] {
+        let data: Record<string, any>;
+
+        try {
+            data = JSON.parse(output);
+        } catch (err) {
+            this.logger.error('Failed to parse sensors JSON', err);
+            return [];
+        }
+
         const sensors: TemperatureSensor[] = [];
 
-        for (const line of lines) {
-            const match = line.match(/^(.+?):.*?\+([0-9.]+)\s*°?C/);
-            if (!match) continue;
+        for (const [chipName, chip] of Object.entries(data)) {
+            for (const [label, values] of Object.entries<any>(chip)) {
+                if (label === 'Adapter') continue;
+                if (typeof values !== 'object') continue;
 
-            const name = match[1].trim();
-            const value = Number(match[2]);
+                for (const [key, value] of Object.entries<any>(values)) {
+                    if (!key.endsWith('_input')) continue;
+                    if (typeof value !== 'number') continue;
 
-            const temperatureReading: TemperatureReading = {
-                value,
-                unit: TemperatureUnit.CELSIUS,
-                timestamp: new Date(),
-                status: this.computeStatus(value),
-            };
+                    const name = `${chipName} ${label}`;
 
-            sensors.push({
-                id: `sensor:${name}`,
-                name,
-                type: this.inferSensorType(name),
-                current: temperatureReading,
-            });
+                    sensors.push({
+                        id: `sensor:${chipName}:${label}:${key}`,
+                        name,
+                        type: this.inferSensorType(name),
+                        current: {
+                            value,
+                            unit: TemperatureUnit.CELSIUS,
+                            timestamp: new Date(),
+                            status: this.computeStatus(value),
+                        },
+                    });
+                }
+            }
         }
 
         return sensors;
