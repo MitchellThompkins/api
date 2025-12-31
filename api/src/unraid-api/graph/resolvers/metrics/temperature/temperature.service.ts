@@ -19,6 +19,10 @@ export class TemperatureService implements OnModuleInit {
     private readonly binPath: string;
     private availableTools: Map<string, string> = new Map();
 
+    private cache: TemperatureMetrics | null = null;
+    private cacheTimestamp = 0;
+    private readonly CACHE_TTL_MS = 1000;
+
     constructor(private readonly configService: ConfigService) {
         // TODO(@mitchellthompkins): Make this something sensible
         this.binPath = this.configService.get(
@@ -56,6 +60,11 @@ export class TemperatureService implements OnModuleInit {
     // Public API
     // ============================
     async getMetrics(): Promise<TemperatureMetrics | null> {
+        const now = Date.now();
+        if (this.cache && now - this.cacheTimestamp < this.CACHE_TTL_MS) {
+            return this.cache;
+        }
+
         if (!this.availableTools.has('sensors')) {
             this.logger.debug('Temperature metrics unavailable (sensors missing)');
             return null;
@@ -69,11 +78,16 @@ export class TemperatureService implements OnModuleInit {
             return null;
         }
 
-        return {
+        const metrics: TemperatureMetrics = {
             id: 'temperature-metrics',
             sensors,
             summary: this.buildSummary(sensors),
         };
+
+        this.cache = metrics;
+        this.cacheTimestamp = now;
+
+        return metrics;
     }
 
     // ============================
@@ -128,6 +142,7 @@ export class TemperatureService implements OnModuleInit {
         if (n.includes('gpu')) return SensorType.GPU;
         if (n.includes('nvme')) return SensorType.NVME;
         if (n.includes('board')) return SensorType.MOTHERBOARD;
+        if (n.includes('wmi')) return SensorType.MOTHERBOARD; // TODO Validate this
 
         return SensorType.CUSTOM;
     }

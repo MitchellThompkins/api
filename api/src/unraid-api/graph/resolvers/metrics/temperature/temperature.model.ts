@@ -8,6 +8,8 @@ import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
 export enum TemperatureUnit {
     CELSIUS = 'CELSIUS',
     FAHRENHEIT = 'FAHRENHEIT',
+    KELVIN = 'KELVIN',
+    RANKINE = 'RANKINE',
 }
 
 registerEnumType(TemperatureUnit, {
