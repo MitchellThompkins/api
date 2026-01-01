@@ -4,6 +4,7 @@ import { join } from 'path';
 
 import { execa } from 'execa';
 
+import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm-sensors.service.js';
 import {
     SensorType,
     TemperatureMetrics,
@@ -16,20 +17,17 @@ import {
 @Injectable()
 export class TemperatureService implements OnModuleInit {
     private readonly logger = new Logger(TemperatureService.name);
-    private readonly binPath: string;
+    //private readonly binPath: string;
     private availableTools: Map<string, string> = new Map();
 
     private cache: TemperatureMetrics | null = null;
     private cacheTimestamp = 0;
     private readonly CACHE_TTL_MS = 1000;
 
-    constructor(private readonly configService: ConfigService) {
-        // TODO(@mitchellthompkins): Make this something sensible
-        this.binPath = this.configService.get(
-            'API_MONITORING_BIN_PATH',
-            '/usr/local/emhttp/plugins/unraid-api/monitoring'
-        );
-    }
+    constructor(
+        private readonly lmSensors: LmSensorsService,
+        private readonly configService: ConfigService
+    ) {}
 
     async onModuleInit() {
         await this.initializeBundledTools();
@@ -69,14 +67,27 @@ export class TemperatureService implements OnModuleInit {
             this.logger.debug('Temperature metrics unavailable (sensors missing)');
             return null;
         }
+        //const output = await this.execTool('sensors', ['-j']);
 
-        const output = await this.execTool('sensors', ['-j']);
-        const sensors = this.parseSensorsJson(output);
+        //const sensors = this.parseSensorsJson(output);
 
-        if (sensors.length === 0) {
-            this.logger.debug('No temperature sensors detected');
-            return null;
-        }
+        //if (sensors.length === 0) {
+        //    this.logger.debug('No temperature sensors detected');
+        //    return null;
+        //}
+
+        const rawSensors = await this.lmSensors.read();
+        const sensors: TemperatureSensor[] = rawSensors.map((r) => ({
+            id: r.id,
+            name: r.name,
+            type: r.type,
+            current: {
+                value: r.value,
+                unit: r.unit,
+                timestamp: new Date(),
+                status: this.computeStatus(r.value),
+            },
+        }));
 
         const metrics: TemperatureMetrics = {
             id: 'temperature-metrics',
