@@ -4,6 +4,7 @@ import { join } from 'path';
 
 import { execa } from 'execa';
 
+import { DiskSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/disk_sensors.service.js';
 import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm_sensors.service.js';
 import {
     RawTemperatureSensor,
@@ -31,6 +32,8 @@ export class TemperatureService implements OnModuleInit {
     constructor(
         // Inject all available sensor providers
         private readonly lmSensors: LmSensorsService,
+        private readonly diskSensors: DiskSensorsService,
+
         // Future: private readonly gpuSensors: GpuSensorsService,
         // Future: private readonly diskSensors: DiskSensorsService,
         private readonly configService: ConfigService
@@ -44,8 +47,8 @@ export class TemperatureService implements OnModuleInit {
     private async initializeProviders(): Promise<void> {
         const potentialProviders = [
             this.lmSensors,
-            // Future: this.gpuSensors,
-            // Future: this.diskSensors,
+            this.diskSensors,
+            // TODO(@mitchellthompkins): this.gpuSensors,
         ];
 
         for (const provider of potentialProviders) {
