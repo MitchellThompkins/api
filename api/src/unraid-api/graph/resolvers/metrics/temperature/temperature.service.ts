@@ -6,6 +6,10 @@ import { execa } from 'execa';
 
 import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm-sensors.service.js';
 import {
+    RawTemperatureSensor,
+    TemperatureSensorProvider,
+} from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/sensor.interface.js';
+import {
     SensorType,
     TemperatureMetrics,
     TemperatureReading,
@@ -14,167 +18,147 @@ import {
     TemperatureUnit,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
 
+// temperature.service.ts
 @Injectable()
 export class TemperatureService implements OnModuleInit {
     private readonly logger = new Logger(TemperatureService.name);
-    //private readonly binPath: string;
-    private availableTools: Map<string, string> = new Map();
+    private availableProviders: TemperatureSensorProvider[] = [];
 
     private cache: TemperatureMetrics | null = null;
     private cacheTimestamp = 0;
     private readonly CACHE_TTL_MS = 1000;
 
     constructor(
+        // Inject all available sensor providers
         private readonly lmSensors: LmSensorsService,
+        // Future: private readonly gpuSensors: GpuSensorsService,
+        // Future: private readonly diskSensors: DiskSensorsService,
         private readonly configService: ConfigService
     ) {}
 
     async onModuleInit() {
-        await this.initializeBundledTools();
+        // Initialize all providers and check availability
+        await this.initializeProviders();
     }
 
-    private async initializeBundledTools(): Promise<void> {
-        const systemSensors = '/usr/bin/sensors';
+    private async initializeProviders(): Promise<void> {
+        const potentialProviders = [
+            this.lmSensors,
+            // Future: this.gpuSensors,
+            // Future: this.diskSensors,
+        ];
 
-        try {
-            await execa(systemSensors, ['--version']);
-            this.availableTools.set('sensors', systemSensors);
-            this.logger.log(`Temperature tool available: sensors (from system path)`);
-        } catch (err) {
-            this.logger.warn(`Temperature tool not available at ${systemSensors}`, err);
+        for (const provider of potentialProviders) {
+            try {
+                if (await provider.isAvailable()) {
+                    this.availableProviders.push(provider);
+                    this.logger.log(`Temperature provider available: ${provider.id}`);
+                } else {
+                    this.logger.debug(`Temperature provider not available: ${provider.id}`);
+                }
+            } catch (err) {
+                this.logger.warn(`Failed to check provider ${provider.id}`, err);
+            }
+        }
+
+        if (this.availableProviders.length === 0) {
+            this.logger.warn('No temperature providers available');
         }
     }
 
-    private async execTool(toolName: string, args: string[]): Promise<string> {
-        const toolPath = this.availableTools.get(toolName);
-        if (!toolPath) {
-            throw new Error(`Tool ${toolName} not available`);
-        }
-        const { stdout } = await execa(toolPath, args);
-        return stdout;
-    }
-
-    // ============================
-    // Public API
-    // ============================
     async getMetrics(): Promise<TemperatureMetrics | null> {
         const now = Date.now();
         if (this.cache && now - this.cacheTimestamp < this.CACHE_TTL_MS) {
             return this.cache;
         }
 
-        if (!this.availableTools.has('sensors')) {
-            this.logger.debug('Temperature metrics unavailable (sensors missing)');
+        if (this.availableProviders.length === 0) {
+            this.logger.debug('Temperature metrics unavailable (no providers)');
             return null;
         }
-        //const output = await this.execTool('sensors', ['-j']);
-
-        //const sensors = this.parseSensorsJson(output);
-
-        //if (sensors.length === 0) {
-        //    this.logger.debug('No temperature sensors detected');
-        //    return null;
-        //}
-
-        const rawSensors = await this.lmSensors.read();
-        const sensors: TemperatureSensor[] = rawSensors.map((r) => ({
-            id: r.id,
-            name: r.name,
-            type: r.type,
-            current: {
-                value: r.value,
-                unit: r.unit,
-                timestamp: new Date(),
-                status: this.computeStatus(r.value),
-            },
-        }));
-
-        const metrics: TemperatureMetrics = {
-            id: 'temperature-metrics',
-            sensors,
-            summary: this.buildSummary(sensors),
-        };
-
-        this.cache = metrics;
-        this.cacheTimestamp = now;
-
-        return metrics;
-    }
-
-    // ============================
-    // Parsing
-    // ============================
-    private parseSensorsJson(output: string): TemperatureSensor[] {
-        let data: Record<string, any>;
 
         try {
-            data = JSON.parse(output);
-        } catch (err) {
-            this.logger.error('Failed to parse sensors JSON', err);
-            return [];
-        }
+            // Collect sensors from ALL available providers
+            const allRawSensors: RawTemperatureSensor[] = [];
 
-        const sensors: TemperatureSensor[] = [];
-
-        for (const [chipName, chip] of Object.entries(data)) {
-            for (const [label, values] of Object.entries<any>(chip)) {
-                if (label === 'Adapter') continue;
-                if (typeof values !== 'object') continue;
-
-                for (const [key, value] of Object.entries<any>(values)) {
-                    if (!key.endsWith('_input')) continue;
-                    if (typeof value !== 'number') continue;
-
-                    const name = `${chipName} ${label}`;
-
-                    sensors.push({
-                        id: `sensor:${chipName}:${label}:${key}`,
-                        name,
-                        type: this.inferSensorType(name),
-                        current: {
-                            value,
-                            unit: TemperatureUnit.CELSIUS,
-                            timestamp: new Date(),
-                            status: this.computeStatus(value),
-                        },
-                    });
+            for (const provider of this.availableProviders) {
+                try {
+                    const sensors = await provider.read();
+                    allRawSensors.push(...sensors);
+                } catch (err) {
+                    this.logger.error(`Failed to read from provider ${provider.id}`, err);
+                    // Continue with other providers
                 }
             }
+
+            if (allRawSensors.length === 0) {
+                this.logger.debug('No temperature sensors detected');
+                return null;
+            }
+
+            const sensors: TemperatureSensor[] = allRawSensors.map((r) => ({
+                id: r.id,
+                name: r.name,
+                type: r.type,
+                current: {
+                    value: r.value,
+                    unit: r.unit,
+                    timestamp: new Date(),
+                    status: this.computeStatus(r.value, r.type),
+                },
+            }));
+
+            const metrics: TemperatureMetrics = {
+                id: 'temperature-metrics',
+                sensors,
+                summary: this.buildSummary(sensors),
+            };
+
+            this.cache = metrics;
+            this.cacheTimestamp = now;
+
+            return metrics;
+        } catch (err) {
+            this.logger.error('Failed to read temperature sensors', err);
+            return null;
         }
-
-        return sensors;
     }
 
-    private inferSensorType(name: string): SensorType {
-        const n = name.toLowerCase();
+    // Make status computation type-aware for future per-type thresholds
+    private computeStatus(value: number, type: SensorType): TemperatureStatus {
+        // Future: load thresholds from config based on type
+        const thresholds = this.getThresholdsForType(type);
 
-        if (n.includes('package')) return SensorType.CPU_PACKAGE;
-        if (n.includes('core')) return SensorType.CPU_CORE;
-        if (n.includes('gpu')) return SensorType.GPU;
-        if (n.includes('nvme')) return SensorType.NVME;
-        if (n.includes('board')) return SensorType.MOTHERBOARD;
-        if (n.includes('wmi')) return SensorType.MOTHERBOARD; // TODO Validate this
-
-        return SensorType.CUSTOM;
-    }
-
-    private computeStatus(value: number): TemperatureStatus {
-        if (value >= 90) return TemperatureStatus.CRITICAL;
-        if (value >= 80) return TemperatureStatus.WARNING;
+        if (value >= thresholds.critical) return TemperatureStatus.CRITICAL;
+        if (value >= thresholds.warning) return TemperatureStatus.WARNING;
         return TemperatureStatus.NORMAL;
     }
 
-    // ============================
-    // Summary
-    // ============================
+    private getThresholdsForType(type: SensorType): { warning: number; critical: number } {
+        // Future: load from configService
+        // For now, use sensible defaults per type
+        switch (type) {
+            case SensorType.CPU_PACKAGE:
+            case SensorType.CPU_CORE:
+                return { warning: 70, critical: 85 };
+            case SensorType.GPU:
+                return { warning: 80, critical: 90 };
+            case SensorType.DISK:
+            case SensorType.NVME:
+                return { warning: 50, critical: 60 };
+            default:
+                return { warning: 80, critical: 90 };
+        }
+    }
 
     private buildSummary(sensors: TemperatureSensor[]) {
+        if (sensors.length === 0) {
+            throw new Error('Cannot build summary with no sensors');
+        }
+
         const values = sensors.map((s) => s.current.value);
-
         const average = values.reduce((a, b) => a + b, 0) / values.length;
-
         const hottest = sensors.reduce((a, b) => (a.current.value > b.current.value ? a : b));
-
         const coolest = sensors.reduce((a, b) => (a.current.value < b.current.value ? a : b));
 
         return {
