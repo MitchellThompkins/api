@@ -4,7 +4,7 @@ import { join } from 'path';
 
 import { execa } from 'execa';
 
-import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm-sensors.service.js';
+import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm_sensors.service.js';
 import {
     RawTemperatureSensor,
     TemperatureSensorProvider,
