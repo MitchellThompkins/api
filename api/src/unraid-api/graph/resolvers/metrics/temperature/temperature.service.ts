@@ -10,6 +10,7 @@ import {
     RawTemperatureSensor,
     TemperatureSensorProvider,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/sensor.interface.js';
+import { TemperatureHistoryService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature_history.service.js';
 import {
     SensorType,
     TemperatureMetrics,
@@ -36,6 +37,7 @@ export class TemperatureService implements OnModuleInit {
 
         // Future: private readonly gpuSensors: GpuSensorsService,
         // Future: private readonly diskSensors: DiskSensorsService,
+        private readonly history: TemperatureHistoryService,
         private readonly configService: ConfigService
     ) {}
 
@@ -70,18 +72,23 @@ export class TemperatureService implements OnModuleInit {
     }
 
     async getMetrics(): Promise<TemperatureMetrics | null> {
-        const now = Date.now();
-        if (this.cache && now - this.cacheTimestamp < this.CACHE_TTL_MS) {
-            return this.cache;
+        // Check if we can use recent history instead of re-reading sensors
+        const mostRecent = this.history.getMostRecentReading();
+        const canUseHistory =
+            mostRecent && Date.now() - mostRecent.timestamp.getTime() < this.CACHE_TTL_MS;
+
+        if (canUseHistory) {
+            // Build from history (fast path)
+            return this.buildMetricsFromHistory();
         }
 
+        // Read fresh data from sensors
         if (this.availableProviders.length === 0) {
             this.logger.debug('Temperature metrics unavailable (no providers)');
             return null;
         }
 
         try {
-            // Collect sensors from ALL available providers
             const allRawSensors: RawTemperatureSensor[] = [];
 
             for (const provider of this.availableProviders) {
@@ -90,7 +97,6 @@ export class TemperatureService implements OnModuleInit {
                     allRawSensors.push(...sensors);
                 } catch (err) {
                     this.logger.error(`Failed to read from provider ${provider.id}`, err);
-                    // Continue with other providers
                 }
             }
 
@@ -99,32 +105,79 @@ export class TemperatureService implements OnModuleInit {
                 return null;
             }
 
-            const sensors: TemperatureSensor[] = allRawSensors.map((r) => ({
-                id: r.id,
-                name: r.name,
-                type: r.type,
-                current: {
+            const sensors: TemperatureSensor[] = allRawSensors.map((r) => {
+                const current: TemperatureReading = {
                     value: r.value,
                     unit: r.unit,
                     timestamp: new Date(),
                     status: this.computeStatus(r.value, r.type),
-                },
-            }));
+                };
 
-            const metrics: TemperatureMetrics = {
+                // Record in history
+                this.history.record(r.id, current, {
+                    name: r.name,
+                    type: r.type,
+                });
+
+                // Get historical data
+                const { min, max } = this.history.getMinMax(r.id);
+                const historicalReadings = this.history.getHistory(r.id);
+
+                return {
+                    id: r.id,
+                    name: r.name,
+                    type: r.type,
+                    current,
+                    min,
+                    max,
+                    history: historicalReadings,
+                    warning: this.getThresholdsForType(r.type).warning,
+                    critical: this.getThresholdsForType(r.type).critical,
+                };
+            });
+
+            return {
                 id: 'temperature-metrics',
                 sensors,
                 summary: this.buildSummary(sensors),
             };
-
-            this.cache = metrics;
-            this.cacheTimestamp = now;
-
-            return metrics;
         } catch (err) {
             this.logger.error('Failed to read temperature sensors', err);
             return null;
         }
+    }
+
+    private buildMetricsFromHistory(): TemperatureMetrics | null {
+        const allSensorIds = this.history.getAllSensorIds();
+
+        if (allSensorIds.length === 0) {
+            return null;
+        }
+
+        const sensors: TemperatureSensor[] = allSensorIds.map((sensorId) => {
+            const { min, max } = this.history.getMinMax(sensorId);
+            const historicalReadings = this.history.getHistory(sensorId);
+            const current = historicalReadings[historicalReadings.length - 1];
+            const metadata = this.history.getMetadata(sensorId)!;
+
+            return {
+                id: sensorId,
+                name: metadata.name,
+                type: metadata.type,
+                current,
+                min,
+                max,
+                history: historicalReadings,
+                warning: this.getThresholdsForType(metadata.type).warning,
+                critical: this.getThresholdsForType(metadata.type).critical,
+            };
+        });
+
+        return {
+            id: 'temperature-metrics',
+            sensors,
+            summary: this.buildSummary(sensors),
+        };
     }
 
     // Make status computation type-aware for future per-type thresholds

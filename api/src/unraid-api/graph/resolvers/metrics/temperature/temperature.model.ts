@@ -98,6 +98,13 @@ export class TemperatureSensor extends Node {
     @IsOptional()
     @IsNumber()
     critical?: number;
+
+    @Field(() => [TemperatureReading], {
+        nullable: true,
+        description: 'Historical readings for this sensor',
+    })
+    @IsOptional()
+    history?: TemperatureReading[];
 }
 
 @ObjectType()
