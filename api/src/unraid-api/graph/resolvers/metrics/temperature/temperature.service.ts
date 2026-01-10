@@ -191,17 +191,21 @@ export class TemperatureService implements OnModuleInit {
     }
 
     private getThresholdsForType(type: SensorType): { warning: number; critical: number } {
-        // Future: load from configService
-        // For now, use sensible defaults per type
+        const thresholds = this.configService.get('temperature.thresholds', {});
+
         switch (type) {
             case SensorType.CPU_PACKAGE:
             case SensorType.CPU_CORE:
-                return { warning: 70, critical: 85 };
-            case SensorType.GPU:
-                return { warning: 80, critical: 90 };
+                return {
+                    warning: thresholds.cpu_warning ?? 70,
+                    critical: thresholds.cpu_critical ?? 85,
+                };
             case SensorType.DISK:
             case SensorType.NVME:
-                return { warning: 50, critical: 60 };
+                return {
+                    warning: thresholds.disk_warning ?? 50,
+                    critical: thresholds.disk_critical ?? 60,
+                };
             default:
                 return { warning: 80, critical: 90 };
         }

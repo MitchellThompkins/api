@@ -1,4 +1,5 @@
 import { Logger, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Query, ResolveField, Resolver, Subscription } from '@nestjs/graphql';
 
 import { AuthAction, Resource } from '@unraid/shared/graphql.model.js';
@@ -25,7 +26,8 @@ export class MetricsResolver implements OnModuleInit {
         private readonly memoryService: MemoryService,
         private readonly temperatureService: TemperatureService,
         private readonly subscriptionTracker: SubscriptionTrackerService,
-        private readonly subscriptionHelper: SubscriptionHelperService
+        private readonly subscriptionHelper: SubscriptionHelperService,
+        private readonly configService: ConfigService
     ) {}
 
     onModuleInit() {
@@ -81,7 +83,8 @@ export class MetricsResolver implements OnModuleInit {
             2000
         );
 
-        // Add temperature polling with 5 second interval
+        const pollingInterval = this.configService.get<number>('temperature.pollingInterval', 5000);
+
         this.subscriptionTracker.registerTopic(
             PUBSUB_CHANNEL.TEMPERATURE_METRICS,
             async () => {
@@ -90,7 +93,7 @@ export class MetricsResolver implements OnModuleInit {
                     systemMetricsTemperature: payload,
                 });
             },
-            5000
+            pollingInterval
         );
     }
 
