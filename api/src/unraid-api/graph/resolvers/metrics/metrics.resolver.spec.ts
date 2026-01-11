@@ -1,4 +1,5 @@
 import type { TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -82,6 +83,12 @@ describe('MetricsResolver', () => {
                     provide: SubscriptionHelperService,
                     useValue: {
                         createTrackedSubscription: vi.fn(),
+                    },
+                },
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: vi.fn((key: string, defaultValue?: any) => defaultValue),
                     },
                 },
             ],
@@ -174,13 +181,18 @@ describe('MetricsResolver', () => {
                 getMetrics: vi.fn().mockResolvedValue(null),
             } satisfies Pick<TemperatureService, 'getMetrics'>;
 
+            const configServiceMock = {
+                get: vi.fn((key: string, defaultValue?: any) => defaultValue),
+            };
+
             const testModule = new MetricsResolver(
                 cpuService,
                 cpuTopologyServiceMock as unknown as CpuTopologyService,
                 memoryService,
                 temperatureServiceMock as unknown as TemperatureService,
                 subscriptionTracker as any,
-                {} as any
+                {} as any,
+                configServiceMock as any
             );
 
             testModule.onModuleInit();
