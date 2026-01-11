@@ -9,6 +9,7 @@ import { CpuTopologyService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu
 import { CpuService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu.service.js';
 import { MemoryService } from '@app/unraid-api/graph/resolvers/info/memory/memory.service.js';
 import { MetricsResolver } from '@app/unraid-api/graph/resolvers/metrics/metrics.resolver.js';
+import { TemperatureService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.service.js';
 import { SubscriptionHelperService } from '@app/unraid-api/graph/services/subscription-helper.service.js';
 import { SubscriptionManagerService } from '@app/unraid-api/graph/services/subscription-manager.service.js';
 import { SubscriptionTrackerService } from '@app/unraid-api/graph/services/subscription-tracker.service.js';
@@ -25,6 +26,12 @@ describe('MetricsResolver Integration Tests', () => {
                 CpuService,
                 CpuTopologyService,
                 MemoryService,
+                {
+                    provide: TemperatureService,
+                    useValue: {
+                        getMetrics: vi.fn().mockResolvedValue(null),
+                    },
+                },
                 SubscriptionTrackerService,
                 SubscriptionHelperService,
                 SubscriptionManagerService,
