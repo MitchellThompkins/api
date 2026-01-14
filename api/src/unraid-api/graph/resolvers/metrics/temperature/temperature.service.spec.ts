@@ -99,7 +99,7 @@ describe('TemperatureService', () => {
                     id: 'cpu:hot',
                     name: 'Hot CPU',
                     type: SensorType.CPU_CORE,
-                    value: 85,
+                    value: 75,
                     unit: TemperatureUnit.CELSIUS,
                 },
             ]);
@@ -143,6 +143,7 @@ describe('TemperatureService', () => {
 
     describe('buildSummary', () => {
         it('should calculate correct average', async () => {
+            await service.onModuleInit();
             vi.mocked(lmSensors.read).mockResolvedValue([
                 {
                     id: 'sensor1',
@@ -165,6 +166,7 @@ describe('TemperatureService', () => {
         });
 
         it('should identify hottest and coolest sensors', async () => {
+            await service.onModuleInit();
             vi.mocked(lmSensors.read).mockResolvedValue([
                 {
                     id: 's1',
