@@ -3,10 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-    CpuTopologyService,
-    CpuTopologyService,
-} from '@app/unraid-api/graph/resolvers/info/cpu/cpu-topology.service.js';
+import { CpuTopologyService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu-topology.service.js';
 import { CpuService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu.service.js';
 import { MemoryService } from '@app/unraid-api/graph/resolvers/info/memory/memory.service.js';
 import { MetricsResolver } from '@app/unraid-api/graph/resolvers/metrics/metrics.resolver.js';
