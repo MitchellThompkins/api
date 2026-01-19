@@ -84,17 +84,20 @@ export class MetricsResolver implements OnModuleInit {
         );
 
         const pollingInterval = this.configService.get<number>('temperature.pollingInterval', 5000);
+        const isTemperatureEnabled = this.configService.get<boolean>('temperature.enabled', true);
 
-        this.subscriptionTracker.registerTopic(
-            PUBSUB_CHANNEL.TEMPERATURE_METRICS,
-            async () => {
-                const payload = await this.temperatureService.getMetrics();
-                pubsub.publish(PUBSUB_CHANNEL.TEMPERATURE_METRICS, {
-                    systemMetricsTemperature: payload,
-                });
-            },
-            pollingInterval
-        );
+        if (isTemperatureEnabled) {
+            this.subscriptionTracker.registerTopic(
+                PUBSUB_CHANNEL.TEMPERATURE_METRICS,
+                async () => {
+                    const payload = await this.temperatureService.getMetrics();
+                    pubsub.publish(PUBSUB_CHANNEL.TEMPERATURE_METRICS, {
+                        systemMetricsTemperature: payload,
+                    });
+                },
+                pollingInterval
+            );
+        }
     }
 
     @Query(() => Metrics)
