@@ -1,10 +1,14 @@
-import { INestApplication } from '@nestjs/common';
-import { GraphQLModule } from '@nestjs/graphql';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import request from 'supertest';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import {
+    CpuTopologyService,
+    CpuTopologyService,
+} from '@app/unraid-api/graph/resolvers/info/cpu/cpu-topology.service.js';
+import { CpuService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu.service.js';
+import { MemoryService } from '@app/unraid-api/graph/resolvers/info/memory/memory.service.js';
 import { MetricsResolver } from '@app/unraid-api/graph/resolvers/metrics/metrics.resolver.js';
 import {
     SensorType,
@@ -12,11 +16,13 @@ import {
     TemperatureUnit,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
 import { TemperatureService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.service.js';
-
-// ... other imports as needed
+import { SubscriptionHelperService } from '@app/unraid-api/graph/services/subscription-helper.service.js';
+import { SubscriptionManagerService } from '@app/unraid-api/graph/services/subscription-manager.service.js';
+import { SubscriptionTrackerService } from '@app/unraid-api/graph/services/subscription-tracker.service.js';
 
 describe('Temperature GraphQL Integration', () => {
-    let app: INestApplication;
+    let module: TestingModule;
+    let resolver: MetricsResolver;
     let temperatureService: TemperatureService;
 
     const mockTemperatureMetrics = {
@@ -32,15 +38,45 @@ describe('Temperature GraphQL Integration', () => {
                     timestamp: new Date(),
                     status: TemperatureStatus.NORMAL,
                 },
+                min: {
+                    value: 45,
+                    unit: TemperatureUnit.CELSIUS,
+                    timestamp: new Date(),
+                    status: TemperatureStatus.NORMAL,
+                },
+                max: {
+                    value: 65,
+                    unit: TemperatureUnit.CELSIUS,
+                    timestamp: new Date(),
+                    status: TemperatureStatus.WARNING,
+                },
+                warning: 70,
+                critical: 85,
             },
         ],
         summary: {
             average: 55,
             hottest: {
-                /* ... */
+                id: 'cpu:package',
+                name: 'CPU Package',
+                type: SensorType.CPU_PACKAGE,
+                current: {
+                    value: 55,
+                    unit: TemperatureUnit.CELSIUS,
+                    timestamp: new Date(),
+                    status: TemperatureStatus.NORMAL,
+                },
             },
             coolest: {
-                /* ... */
+                id: 'cpu:package',
+                name: 'CPU Package',
+                type: SensorType.CPU_PACKAGE,
+                current: {
+                    value: 55,
+                    unit: TemperatureUnit.CELSIUS,
+                    timestamp: new Date(),
+                    status: TemperatureStatus.NORMAL,
+                },
             },
             warningCount: 0,
             criticalCount: 0,
@@ -48,71 +84,145 @@ describe('Temperature GraphQL Integration', () => {
     };
 
     beforeEach(async () => {
-        const module: TestingModule = await Test.createTestingModule({
-            // Set up your test module with mocked services
+        module = await Test.createTestingModule({
             providers: [
+                MetricsResolver,
+                {
+                    provide: CpuService,
+                    useValue: {
+                        getUtilization: vi.fn().mockResolvedValue({}),
+                    },
+                },
+                {
+                    provide: CpuTopologyService,
+                    useValue: {
+                        generateTopology: vi.fn().mockResolvedValue([]),
+                        generateTelemetry: vi.fn().mockResolvedValue([]),
+                    },
+                },
+                {
+                    provide: MemoryService,
+                    useValue: {
+                        getUtilization: vi.fn().mockResolvedValue({}),
+                    },
+                },
                 {
                     provide: TemperatureService,
                     useValue: {
                         getMetrics: vi.fn().mockResolvedValue(mockTemperatureMetrics),
                     },
                 },
-                // ... other required providers
+                {
+                    provide: SubscriptionTrackerService,
+                    useValue: {
+                        registerTopic: vi.fn(),
+                        cleanup: vi.fn(),
+                    },
+                },
+                {
+                    provide: SubscriptionHelperService,
+                    useValue: {
+                        createTrackedSubscription: vi.fn(),
+                    },
+                },
+                {
+                    provide: SubscriptionManagerService,
+                    useValue: {
+                        stopAll: vi.fn(),
+                    },
+                },
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: vi.fn((key: string, defaultValue?: any) => defaultValue),
+                    },
+                },
             ],
         }).compile();
 
-        app = module.createNestApplication();
-        await app.init();
+        resolver = module.get<MetricsResolver>(MetricsResolver);
         temperatureService = module.get<TemperatureService>(TemperatureService);
     });
 
-    it('should return temperature data via metrics query', async () => {
-        const query = `
-            query {
-                metrics {
-                    temperature {
-                        sensors {
-                            id
-                            name
-                            type
-                            current {
-                                value
-                                unit
-                                status
-                            }
-                        }
-                        summary {
-                            average
-                            warningCount
-                            criticalCount
-                        }
-                    }
-                }
-            }
-        `;
-
-        const response = await request(app.getHttpServer()).post('/graphql').send({ query }).expect(200);
-
-        expect(response.body.data.metrics.temperature).toBeDefined();
-        expect(response.body.data.metrics.temperature.sensors).toHaveLength(1);
-        expect(response.body.data.metrics.temperature.sensors[0].name).toBe('CPU Package');
+    afterEach(async () => {
+        await module.close();
     });
 
-    it('should handle null temperature metrics gracefully', async () => {
-        vi.mocked(temperatureService.getMetrics).mockResolvedValue(null);
+    describe('temperature field resolver', () => {
+        it('should return temperature data via resolver', async () => {
+            const result = await resolver.temperature();
 
-        const query = `
-            query {
-                metrics {
-                    temperature {
-                        sensors { id }
-                    }
-                }
-            }
-        `;
+            expect(result).toBeDefined();
+            expect(result?.sensors).toHaveLength(1);
+            expect(result?.sensors[0].name).toBe('CPU Package');
+            expect(result?.sensors[0].type).toBe(SensorType.CPU_PACKAGE);
+            expect(result?.sensors[0].current.value).toBe(55);
+            expect(result?.summary.average).toBe(55);
+        });
 
-        const response = await request(app.getHttpServer()).post('/graphql').send({ query }).expect(200);
+        it('should handle null temperature metrics gracefully', async () => {
+            vi.mocked(temperatureService.getMetrics).mockResolvedValue(null);
 
-        expect(response.body.data.metrics.temperature).toBeNull();
+            const result = await resolver.temperature();
+
+            expect(result).toBeNull();
+        });
+
+        it('should return summary with correct counts', async () => {
+            const metricsWithWarnings = {
+                ...mockTemperatureMetrics,
+                summary: {
+                    ...mockTemperatureMetrics.summary,
+                    warningCount: 2,
+                    criticalCount: 1,
+                },
+            };
+
+            vi.mocked(temperatureService.getMetrics).mockResolvedValue(metricsWithWarnings);
+
+            const result = await resolver.temperature();
+
+            expect(result?.summary.warningCount).toBe(2);
+            expect(result?.summary.criticalCount).toBe(1);
+        });
+
+        it('should handle multiple sensors', async () => {
+            const multiSensorMetrics = {
+                id: 'temperature-metrics',
+                sensors: [
+                    mockTemperatureMetrics.sensors[0],
+                    {
+                        id: 'disk:sda',
+                        name: 'Disk /dev/sda',
+                        type: SensorType.DISK,
+                        current: {
+                            value: 35,
+                            unit: TemperatureUnit.CELSIUS,
+                            timestamp: new Date(),
+                            status: TemperatureStatus.NORMAL,
+                        },
+                    },
+                ],
+                summary: mockTemperatureMetrics.summary,
+            };
+
+            vi.mocked(temperatureService.getMetrics).mockResolvedValue(multiSensorMetrics as any);
+
+            const result = await resolver.temperature();
+
+            expect(result?.sensors).toHaveLength(2);
+            expect(result?.sensors[0].type).toBe(SensorType.CPU_PACKAGE);
+            expect(result?.sensors[1].type).toBe(SensorType.DISK);
+        });
+    });
+
+    describe('error handling', () => {
+        it('should handle service errors gracefully', async () => {
+            vi.mocked(temperatureService.getMetrics).mockRejectedValue(
+                new Error('Failed to read sensors')
+            );
+
+            await expect(resolver.temperature()).rejects.toThrow('Failed to read sensors');
+        });
     });
 });

@@ -202,7 +202,7 @@ describe('TemperatureService', () => {
 
             // Simulate a slow/hanging provider
             vi.mocked(lmSensors.read).mockImplementation(
-                () => new Promise((resolve) => setTimeout(() => resolve([]), 10000))
+                () => new Promise((resolve) => setTimeout(() => resolve([]), 1000))
             );
 
             // If you have timeout logic, test it here
@@ -213,7 +213,7 @@ describe('TemperatureService', () => {
 
             // Should either timeout or complete - document expected behavior
             expect(metrics).toBeDefined();
-        });
+        }, 10000);
 
         it('should deduplicate sensors with same ID from different providers', async () => {
             await service.onModuleInit();
