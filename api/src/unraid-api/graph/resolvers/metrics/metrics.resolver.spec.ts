@@ -86,6 +86,13 @@ describe('MetricsResolver', () => {
                     },
                 },
                 {
+                    provide: TemperatureService,
+                    useValue: {
+                        getMetrics: vi.fn().mockResolvedValue(null),
+                        // Add any other methods your resolver calls
+                    },
+                },
+                {
                     provide: ConfigService,
                     useValue: {
                         get: vi.fn((key: string, defaultValue?: any) => defaultValue),
@@ -197,7 +204,7 @@ describe('MetricsResolver', () => {
 
             testModule.onModuleInit();
 
-            expect(subscriptionTracker.registerTopic).toHaveBeenCalledTimes(3);
+            expect(subscriptionTracker.registerTopic).toHaveBeenCalledTimes(4);
             expect(subscriptionTracker.registerTopic).toHaveBeenCalledWith(
                 'CPU_UTILIZATION',
                 expect.any(Function),
