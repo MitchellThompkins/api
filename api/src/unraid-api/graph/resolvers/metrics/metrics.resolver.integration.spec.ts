@@ -35,6 +35,12 @@ describe('MetricsResolver Integration Tests', () => {
                 SubscriptionTrackerService,
                 SubscriptionHelperService,
                 SubscriptionManagerService,
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: vi.fn((key: string, defaultValue?: any) => defaultValue),
+                    },
+                },
             ],
         }).compile();
 
