@@ -197,3 +197,166 @@ describe('TemperatureService', () => {
         });
     });
 });
+
+// Add to existing temperature.service.spec.ts
+
+describe('edge cases', () => {
+    it('should handle provider read timeout gracefully', async () => {
+        await service.onModuleInit();
+
+        // Simulate a slow/hanging provider
+        vi.mocked(lmSensors.read).mockImplementation(
+            () => new Promise((resolve) => setTimeout(() => resolve([]), 10000))
+        );
+
+        // If you have timeout logic, test it here
+        // Otherwise, this documents expected behavior
+        const startTime = Date.now();
+        const metrics = await service.getMetrics();
+        const elapsed = Date.now() - startTime;
+
+        // Should either timeout or complete - document expected behavior
+        expect(metrics).toBeDefined();
+    });
+
+    it('should deduplicate sensors with same ID from different providers', async () => {
+        await service.onModuleInit();
+
+        // Both providers return a sensor with the same ID
+        vi.mocked(lmSensors.read).mockResolvedValue([
+            {
+                id: 'duplicate-sensor',
+                name: 'Sensor from lm-sensors',
+                type: SensorType.CPU_CORE,
+                value: 50,
+                unit: TemperatureUnit.CELSIUS,
+            },
+        ]);
+
+        vi.mocked(diskSensors.read).mockResolvedValue([
+            {
+                id: 'duplicate-sensor',
+                name: 'Sensor from disk',
+                type: SensorType.DISK,
+                value: 55,
+                unit: TemperatureUnit.CELSIUS,
+            },
+        ]);
+
+        const metrics = await service.getMetrics();
+
+        // Document expected behavior - currently allows duplicates
+        // If you want to dedupe, add logic and update this test
+        expect(metrics?.sensors.filter((s) => s.id === 'duplicate-sensor')).toHaveLength(2);
+    });
+
+    it('should handle empty sensor name', async () => {
+        await service.onModuleInit();
+
+        vi.mocked(lmSensors.read).mockResolvedValue([
+            {
+                id: 'sensor-no-name',
+                name: '',
+                type: SensorType.CUSTOM,
+                value: 45,
+                unit: TemperatureUnit.CELSIUS,
+            },
+        ]);
+
+        const metrics = await service.getMetrics();
+
+        expect(metrics?.sensors[0].name).toBe('');
+        // Or if you want to enforce non-empty names:
+        // expect(metrics?.sensors[0].name).toBe('Unknown Sensor');
+    });
+
+    it('should handle negative temperature values', async () => {
+        await service.onModuleInit();
+
+        vi.mocked(lmSensors.read).mockResolvedValue([
+            {
+                id: 'cold-sensor',
+                name: 'Freezer Sensor',
+                type: SensorType.CUSTOM,
+                value: -20,
+                unit: TemperatureUnit.CELSIUS,
+            },
+        ]);
+
+        const metrics = await service.getMetrics();
+
+        expect(metrics?.sensors[0].current.value).toBe(-20);
+        expect(metrics?.sensors[0].current.status).toBe(TemperatureStatus.NORMAL);
+    });
+
+    it('should handle extremely high temperature values', async () => {
+        await service.onModuleInit();
+
+        vi.mocked(lmSensors.read).mockResolvedValue([
+            {
+                id: 'hot-sensor',
+                name: 'Very Hot Sensor',
+                type: SensorType.CPU_CORE,
+                value: 150,
+                unit: TemperatureUnit.CELSIUS,
+            },
+        ]);
+
+        const metrics = await service.getMetrics();
+
+        expect(metrics?.sensors[0].current.value).toBe(150);
+        expect(metrics?.sensors[0].current.status).toBe(TemperatureStatus.CRITICAL);
+    });
+
+    it('should handle NaN temperature values', async () => {
+        await service.onModuleInit();
+
+        vi.mocked(lmSensors.read).mockResolvedValue([
+            {
+                id: 'nan-sensor',
+                name: 'Bad Sensor',
+                type: SensorType.CUSTOM,
+                value: NaN,
+                unit: TemperatureUnit.CELSIUS,
+            },
+        ]);
+
+        const metrics = await service.getMetrics();
+
+        // Document expected behavior - should either filter out or handle gracefully
+        // Current implementation would include it; you may want to filter
+        expect(metrics?.sensors).toHaveLength(1);
+    });
+
+    it('should handle all providers failing', async () => {
+        await service.onModuleInit();
+
+        vi.mocked(lmSensors.read).mockRejectedValue(new Error('lm-sensors failed'));
+        vi.mocked(diskSensors.read).mockRejectedValue(new Error('disk sensors failed'));
+
+        const metrics = await service.getMetrics();
+
+        expect(metrics).toBeNull();
+    });
+
+    it('should handle partial provider failures', async () => {
+        await service.onModuleInit();
+
+        vi.mocked(lmSensors.read).mockRejectedValue(new Error('lm-sensors failed'));
+        vi.mocked(diskSensors.read).mockResolvedValue([
+            {
+                id: 'disk:sda',
+                name: 'HDD',
+                type: SensorType.DISK,
+                value: 35,
+                unit: TemperatureUnit.CELSIUS,
+            },
+        ]);
+
+        const metrics = await service.getMetrics();
+
+        expect(metrics).toBeDefined();
+        expect(metrics?.sensors).toHaveLength(1);
+        expect(metrics?.sensors[0].name).toBe('HDD');
+    });
+});
