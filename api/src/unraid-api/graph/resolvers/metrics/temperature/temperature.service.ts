@@ -188,7 +188,7 @@ export class TemperatureService implements OnModuleInit {
     }
 
     private getThresholdsForType(type: SensorType): { warning: number; critical: number } {
-        const thresholds = this.configService.get('temperature.thresholds', {});
+        const thresholds = this.configService.get('api.temperature.thresholds', {});
 
         switch (type) {
             case SensorType.CPU_PACKAGE:

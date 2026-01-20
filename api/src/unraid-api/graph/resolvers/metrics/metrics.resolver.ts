@@ -83,11 +83,8 @@ export class MetricsResolver implements OnModuleInit {
             2000
         );
 
-        const pollingInterval = this.configService.get<number>('temperature.polling_interval', 5000);
-        const isTemperatureEnabled = this.configService.get<boolean>('temperature.enabled', true);
-
-        const tempConfig = this.configService.get('api');
-        this.logger.debug(`Loaded test temperature config: ${JSON.stringify(tempConfig)}`);
+        const isTemperatureEnabled = this.configService.get<boolean>('api.temperature.enabled', true);
+        const pollingInterval = this.configService.get<number>('api.temperature.polling_interval', 5000);
 
         if (isTemperatureEnabled) {
             this.subscriptionTracker.registerTopic(
