@@ -83,7 +83,7 @@ export class MetricsResolver implements OnModuleInit {
             2000
         );
 
-        const pollingInterval = this.configService.get<number>('temperature.pollingInterval', 5000);
+        const pollingInterval = this.configService.get<number>('temperature.polling_interval', 5000);
         const isTemperatureEnabled = this.configService.get<boolean>('temperature.enabled', true);
 
         if (isTemperatureEnabled) {
