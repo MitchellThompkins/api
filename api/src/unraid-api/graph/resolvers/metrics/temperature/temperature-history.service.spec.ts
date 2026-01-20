@@ -98,7 +98,7 @@ describe('TemperatureHistoryService', () => {
         it('should keep only max readings per sensor', () => {
             const configServiceWithLimit = {
                 get: (key: string, defaultValue?: any) => {
-                    if (key === 'temperature.history.maxReadings') return 3;
+                    if (key === 'api.temperature.history.max_readings') return 3;
                     return defaultValue;
                 },
             } as any;

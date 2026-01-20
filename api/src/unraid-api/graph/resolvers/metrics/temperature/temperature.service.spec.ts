@@ -111,7 +111,7 @@ describe('TemperatureService', () => {
         it('should use config thresholds when provided', async () => {
             const customConfigService = {
                 get: vi.fn((key: string, defaultValue?: any) => {
-                    if (key === 'temperature.thresholds') {
+                    if (key === 'api.temperature.thresholds') {
                         return { cpu_warning: 60, cpu_critical: 80 };
                     }
                     return defaultValue;
