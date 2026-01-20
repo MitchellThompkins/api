@@ -37,7 +37,7 @@ export class TemperatureHistoryService {
         this.retentionMs = this.configService.get<number>('temperature.history.retention_ms', 86400000);
 
         this.logger.log(
-            `Temperature history configured: maxReadings=${this.maxReadingsPerSensor}, retentionMs=${this.retentionMs}ms`
+            `Temperature history configured: max_readings=${this.maxReadingsPerSensor}, retentionMs=${this.retentionMs}ms`
         );
     }
 
