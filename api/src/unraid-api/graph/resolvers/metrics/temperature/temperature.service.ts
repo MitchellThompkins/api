@@ -44,22 +44,40 @@ export class TemperatureService implements OnModuleInit {
     }
 
     private async initializeProviders(): Promise<void> {
+        // 1. Get sensor specific configs
+        const lmSensorsConfig = this.configService.get('api.temperature.sensors.lm_sensors');
+        const smartctlConfig = this.configService.get('api.temperature.sensors.smartctl');
+
+        // 2. Define providers with their config checks
+        // We default to TRUE if the config is missing
         const potentialProviders = [
-            this.lmSensors,
-            this.diskSensors,
+            {
+                service: this.lmSensors,
+                enabled: lmSensorsConfig?.enabled ?? true,
+            },
+            {
+                service: this.diskSensors,
+                enabled: smartctlConfig?.enabled ?? true,
+            },
             // TODO(@mitchellthompkins): this.gpuSensors,
         ];
 
         for (const provider of potentialProviders) {
+            // Skip if explicitly disabled in config
+            if (!provider.enabled) {
+                this.logger.debug(`Skipping ${provider.service.id} (disabled in config)`);
+                continue;
+            }
+
             try {
-                if (await provider.isAvailable()) {
-                    this.availableProviders.push(provider);
-                    this.logger.log(`Temperature provider available: ${provider.id}`);
+                if (await provider.service.isAvailable()) {
+                    this.availableProviders.push(provider.service);
+                    this.logger.log(`Temperature provider available: ${provider.service.id}`);
                 } else {
-                    this.logger.debug(`Temperature provider not available: ${provider.id}`);
+                    this.logger.debug(`Temperature provider not available: ${provider.service.id}`);
                 }
             } catch (err) {
-                this.logger.warn(`Failed to check provider ${provider.id}`, err);
+                this.logger.warn(`Failed to check provider ${provider.service.id}`, err);
             }
         }
 
