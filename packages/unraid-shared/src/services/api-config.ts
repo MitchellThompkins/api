@@ -2,8 +2,6 @@ import { Field, ObjectType, Int } from "@nestjs/graphql";
 import { IsString, IsArray, IsOptional, IsBoolean, IsNumber, ValidateNested } from "class-validator";
 import { Type } from "class-transformer";
 
-// 1. Define the nested classes first
-
 @ObjectType()
 export class TemperatureHistoryConfig {
   @Field(() => Int, { nullable: true })
@@ -41,11 +39,52 @@ export class TemperatureThresholdsConfig {
 }
 
 @ObjectType()
+export class LmSensorsConfig {
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  config_path?: string;
+}
+
+@ObjectType()
+export class SmartctlConfig {
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+}
+
+@ObjectType()
+export class SensorsConfig {
+  @Field(() => LmSensorsConfig, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => LmSensorsConfig)
+  lm_sensors?: LmSensorsConfig;
+
+  @Field(() => SmartctlConfig, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SmartctlConfig)
+  smartctl?: SmartctlConfig;
+}
+
+@ObjectType()
 export class TemperatureConfig {
   @Field({ nullable: true })
   @IsOptional()
   @IsBoolean()
   enabled?: boolean;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsString()
+  default_unit?: string;
 
   @Field(() => Int, { nullable: true })
   @IsOptional()
@@ -63,9 +102,13 @@ export class TemperatureConfig {
   @ValidateNested()
   @Type(() => TemperatureThresholdsConfig)
   thresholds?: TemperatureThresholdsConfig;
-}
 
-// 2. Add the temperature field to the main ApiConfig class
+  @Field(() => SensorsConfig, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => SensorsConfig)
+  sensors?: SensorsConfig;
+}
 
 @ObjectType()
 export class ApiConfig {
@@ -93,10 +136,10 @@ export class ApiConfig {
   @IsString({ each: true })
   plugins!: string[];
 
-  // --- ADD THIS ---
   @Field(() => TemperatureConfig, { nullable: true })
   @IsOptional()
   @ValidateNested()
   @Type(() => TemperatureConfig)
   temperature?: TemperatureConfig;
 }
+
