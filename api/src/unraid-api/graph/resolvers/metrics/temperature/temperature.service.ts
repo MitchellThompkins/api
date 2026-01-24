@@ -60,6 +60,7 @@ export class TemperatureService implements OnModuleInit {
                 enabled: smartctlConfig?.enabled ?? true,
             },
             // TODO(@mitchellthompkins): this.gpuSensors,
+            // TODO(@mitchellthompkins): this.ipmiSensors,
         ];
 
         for (const provider of potentialProviders) {
