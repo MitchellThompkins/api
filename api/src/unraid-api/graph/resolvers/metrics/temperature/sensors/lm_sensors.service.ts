@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config'; // Import ConfigService
 
 import { execa } from 'execa';
 
@@ -16,6 +17,8 @@ export class LmSensorsService implements TemperatureSensorProvider {
     readonly id = 'lm-sensors';
     private readonly logger = new Logger(LmSensorsService.name);
 
+    constructor(private readonly configService: ConfigService) {}
+
     async isAvailable(): Promise<boolean> {
         try {
             await execa('sensors', ['--version']);
@@ -26,7 +29,18 @@ export class LmSensorsService implements TemperatureSensorProvider {
     }
 
     async read(): Promise<RawTemperatureSensor[]> {
-        const { stdout } = await execa('sensors', ['-j']);
+        // Read the config path from your new configuration structure
+        const configPath = this.configService.get<string>(
+            'api.temperature.sensors.lm_sensors.config_path'
+        );
+
+        // Build arguments: add '-c path' if configPath exists
+        const args = ['-j'];
+        if (configPath) {
+            args.push('-c', configPath);
+        }
+
+        const { stdout } = await execa('sensors', args);
         const data = JSON.parse(stdout);
 
         const sensors: RawTemperatureSensor[] = [];

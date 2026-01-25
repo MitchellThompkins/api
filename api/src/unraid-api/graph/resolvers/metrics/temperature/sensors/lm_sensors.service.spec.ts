@@ -1,3 +1,5 @@
+import { ConfigService } from '@nestjs/config';
+
 import { execa } from 'execa';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,15 +10,24 @@ import {
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
 
 // Mock execa
-vi.mock('execa', () => ({
-    execa: vi.fn(),
-}));
+vi.mock('execa', async (importOriginal) => {
+    const mod = await importOriginal<typeof import('execa')>();
+    return {
+        ...mod,
+        execa: vi.fn(),
+    };
+});
 
 describe('LmSensorsService', () => {
     let service: LmSensorsService;
+    let configService: ConfigService;
 
     beforeEach(() => {
-        service = new LmSensorsService();
+        configService = {
+            get: vi.fn(),
+        } as any;
+
+        service = new LmSensorsService(configService);
         vi.clearAllMocks();
     });
 
@@ -40,6 +51,28 @@ describe('LmSensorsService', () => {
     });
 
     describe('read', () => {
+        it('should use default arguments when no config path is set', async () => {
+            // Mock config returning undefined
+            vi.mocked(configService.get).mockReturnValue(undefined);
+            vi.mocked(execa).mockResolvedValue({ stdout: '{}' } as any);
+
+            await service.read();
+
+            // Verify called with defaults
+            expect(execa).toHaveBeenCalledWith('sensors', ['-j']);
+        });
+
+        it('should add -c flag when config path is present', async () => {
+            // Mock config returning a path
+            vi.mocked(configService.get).mockReturnValue('/etc/my-sensors.conf');
+            vi.mocked(execa).mockResolvedValue({ stdout: '{}' } as any);
+
+            await service.read();
+
+            // Verify called with extra args
+            expect(execa).toHaveBeenCalledWith('sensors', ['-j', '-c', '/etc/my-sensors.conf']);
+        });
+
         it('should parse sensors JSON output correctly', async () => {
             const mockOutput = {
                 'coretemp-isa-0000': {
