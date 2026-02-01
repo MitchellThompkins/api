@@ -500,8 +500,23 @@ describe('DisksService', () => {
     describe('getTemperature', () => {
         it('should return temperature for a disk', async () => {
             mockExeca.mockResolvedValue({
-                stdout: `ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
-194 Temperature_Celsius     0x0022   114   091   000    Old_age   Always       -       42`,
+                stdout: JSON.stringify({
+                    temperature: { current: 42 },
+                    ata_smart_attributes: {
+                        table: [
+                            {
+                                id: 194,
+                                name: 'Temperature_Celsius',
+                                flags: { string: '0x0022', value: 34 },
+                                value: 114,
+                                worst: 91,
+                                thresh: 0,
+                                when_failed: '',
+                                raw: { value: 42, string: '42' },
+                            },
+                        ],
+                    },
+                }),
                 stderr: '',
                 exitCode: 0,
                 failed: false,
@@ -512,19 +527,40 @@ describe('DisksService', () => {
 
             const temperature = await service.getTemperature('/dev/sda');
             expect(temperature).toBe(42);
-            expect(mockExeca).toHaveBeenCalledWith('smartctl', ['-A', '/dev/sda']);
+            expect(mockExeca).toHaveBeenCalledWith('smartctl', [
+                '-n',
+                'standby',
+                '-A',
+                '-j',
+                '/dev/sda',
+            ]);
         });
 
         it('should handle case where smartctl output has no temperature field', async () => {
             mockExeca.mockResolvedValue({
-                stdout: 'ID# ATTRIBUTE_NAME\n1 Some_Attribute 100 100 000 Old_age Always - 0',
+                stdout: JSON.stringify({
+                    ata_smart_attributes: {
+                        table: [
+                            {
+                                id: 1,
+                                name: 'Raw_Read_Error_Rate',
+                                flags: { string: '0x002f', value: 47 },
+                                value: 200,
+                                worst: 200,
+                                thresh: 51,
+                                when_failed: '',
+                                raw: { value: 0, string: '0' },
+                            },
+                        ],
+                    },
+                }),
                 stderr: '',
                 exitCode: 0,
                 failed: false,
                 command: '',
                 cwd: '',
                 isCanceled: false,
-            }); // No temp line
+            });
 
             const temperature = await service.getTemperature('/dev/sda');
             expect(temperature).toBeNull();
@@ -532,8 +568,22 @@ describe('DisksService', () => {
 
         it('should handle case where smartctl output has Temperature_Celsius with Min/Max format', async () => {
             mockExeca.mockResolvedValue({
-                stdout: `ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
-194 Temperature_Celsius     0x0022   070   060   000    Old_age   Always       -       30 (Min/Max 25/45)`,
+                stdout: JSON.stringify({
+                    ata_smart_attributes: {
+                        table: [
+                            {
+                                id: 194,
+                                name: 'Temperature_Celsius',
+                                flags: { string: '0x0022', value: 34 },
+                                value: 70,
+                                worst: 60,
+                                thresh: 0,
+                                when_failed: '',
+                                raw: { value: 30, string: '30 (Min/Max 25/45)' },
+                            },
+                        ],
+                    },
+                }),
                 stderr: '',
                 exitCode: 0,
                 failed: false,
@@ -548,8 +598,22 @@ describe('DisksService', () => {
 
         it('should handle case where smartctl output has Airflow_Temperature_Cel', async () => {
             mockExeca.mockResolvedValue({
-                stdout: `ID# ATTRIBUTE_NAME          FLAG     VALUE WORST THRESH TYPE      UPDATED  WHEN_FAILED RAW_VALUE
-190 Airflow_Temperature_Cel 0x0022   065   058   045    Old_age   Always       -       35  (Min/Max 30/42 #123)`,
+                stdout: JSON.stringify({
+                    ata_smart_attributes: {
+                        table: [
+                            {
+                                id: 190,
+                                name: 'Airflow_Temperature_Cel',
+                                flags: { string: '0x0022', value: 34 },
+                                value: 65,
+                                worst: 58,
+                                thresh: 45,
+                                when_failed: '',
+                                raw: { value: 35, string: '35 (Min/Max 30/42 #123)' },
+                            },
+                        ],
+                    },
+                }),
                 stderr: '',
                 exitCode: 0,
                 failed: false,
