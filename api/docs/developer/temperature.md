@@ -4,8 +4,8 @@ The Temperature Monitoring feature allows the Unraid API to collect and expose t
 
 ## Configuration
 
-You can configure the temperature monitoring behavior in your `api.json` (or via
-environment variables). Nominally the `api.json` file is found at
+You can configure the temperature monitoring behavior in your `api.json`.
+Nominally the `api.json` file is found at
 `/boot/config/plugins/dynamix.my.servers/configs/`.
 
 ### `api.temperature` Object
