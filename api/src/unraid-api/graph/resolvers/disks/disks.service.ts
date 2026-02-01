@@ -19,25 +19,26 @@ export class DisksService {
     constructor(private readonly configService: ConfigService) {}
     public async getTemperature(device: string): Promise<number | null> {
         try {
-            const { stdout } = await execa('smartctl', ['-A', device]);
-            const lines = stdout.split('\n');
-            const header = lines.find((line) => line.startsWith('ID#')) ?? '';
-            const fields = lines.splice(lines.indexOf(header) + 1, lines.length);
-            const field = fields.find(
-                (line) =>
-                    line.includes('Temperature_Celsius') || line.includes('Airflow_Temperature_Cel')
-            );
+            // Use -j for JSON output
+            const { stdout } = await execa('smartctl', ['-n', 'standby', '-A', '-j', device]);
+            const data = JSON.parse(stdout);
 
-            if (!field) {
-                return null;
+            // 1. Try standard temperature object
+            if (data.temperature?.current) {
+                return data.temperature.current;
             }
 
-            if (field.includes('Min/Max')) {
-                return Number.parseInt(field.split('  -  ')[1].trim().split(' ')[0], 10);
+            // 2. Try Attribute 194 or 190
+            if (data.ata_smart_attributes?.table) {
+                const tempAttr = data.ata_smart_attributes.table.find(
+                    (a: any) => a.id === 194 || a.id === 190
+                );
+                if (tempAttr?.raw?.value) {
+                    return tempAttr.raw.value;
+                }
             }
 
-            const line = field.split(' ');
-            return Number.parseInt(line[line.length - 1], 10);
+            return null;
         } catch (error: unknown) {
             return null;
         }
