@@ -1,0 +1,92 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+
+import { execa } from 'execa';
+
+import {
+    RawTemperatureSensor,
+    TemperatureSensorProvider,
+} from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/sensor.interface.js';
+import {
+    SensorType,
+    TemperatureUnit,
+} from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
+
+@Injectable()
+export class IpmiSensorsService implements TemperatureSensorProvider {
+    readonly id = 'ipmi-sensors';
+    private readonly logger = new Logger(IpmiSensorsService.name);
+
+    constructor(private readonly configService: ConfigService) {}
+
+    async isAvailable(): Promise<boolean> {
+        try {
+            await execa('ipmitool', ['-V']);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    async read(): Promise<RawTemperatureSensor[]> {
+        // We can add config for arguments if needed, similar to lm-sensors
+        // const extraArgs = this.configService.get('api.temperature.sensors.ipmi.args', []);
+
+        try {
+            // 'sdr type temperature' returns sensors specifically for temperature
+            const { stdout } = await execa('ipmitool', ['sdr', 'type', 'temperature']);
+
+            return this.parseIpmiOutput(stdout);
+        } catch (err) {
+            this.logger.error('Failed to read IPMI sensors', err);
+            return [];
+        }
+    }
+
+    private parseIpmiOutput(output: string): RawTemperatureSensor[] {
+        const sensors: RawTemperatureSensor[] = [];
+        const lines = output.split('\n');
+
+        // Example output line:
+        // CPU Temp         | 40 degrees C      | ok
+        // System Temp      | 35 degrees C      | ok
+
+        for (const line of lines) {
+            const parts = line.split('|').map((s) => s.trim());
+            if (parts.length < 2) continue;
+
+            const name = parts[0];
+            const readingParts = parts[1].split(' ');
+            const valueStr = readingParts[0];
+            const unitStr = readingParts.slice(1).join(' '); // "degrees C"
+
+            const value = parseFloat(valueStr);
+
+            if (isNaN(value)) continue;
+
+            // Simple unit detection
+            let unit = TemperatureUnit.CELSIUS;
+            if (unitStr.toLowerCase().includes('f')) {
+                unit = TemperatureUnit.FAHRENHEIT;
+            }
+
+            sensors.push({
+                id: `ipmi:${name.replace(/\s+/g, '_').toLowerCase()}`,
+                name: name,
+                type: this.inferType(name),
+                value: value,
+                unit: unit,
+            });
+        }
+
+        return sensors;
+    }
+
+    private inferType(name: string): SensorType {
+        const n = name.toLowerCase();
+        if (n.includes('cpu')) return SensorType.CPU_PACKAGE;
+        if (n.includes('system') || n.includes('ambient')) return SensorType.MOTHERBOARD;
+        if (n.includes('fan')) return SensorType.CUSTOM; // Should not happen with 'type temperature'
+        return SensorType.CUSTOM;
+    }
+}
