@@ -189,6 +189,41 @@ describe('TemperatureService', () => {
             expect(metrics?.sensors[0].current.value).toBe(273.15);
             expect(metrics?.sensors[0].current.unit).toBe(TemperatureUnit.KELVIN);
         });
+
+        it('should return temperature metrics in Rankine when configured', async () => {
+            const customConfigService = {
+                get: vi.fn((key: string, defaultValue?: any) => {
+                    if (key === 'api.temperature.default_unit') {
+                        return 'rankine';
+                    }
+                    return defaultValue;
+                }),
+            } as any;
+
+            const customService = new TemperatureService(
+                lmSensors,
+                diskSensors,
+                ipmiSensors,
+                history,
+                customConfigService
+            );
+            await customService.onModuleInit();
+
+            vi.mocked(lmSensors.read).mockResolvedValue([
+                {
+                    id: 'cpu:package',
+                    name: 'CPU Package',
+                    type: SensorType.CPU_PACKAGE,
+                    value: 25,
+                    unit: TemperatureUnit.CELSIUS,
+                },
+            ]);
+
+            const metrics = await customService.getMetrics();
+            // (25 + 273.15) * 9/5 = 536.67
+            expect(metrics?.sensors[0].current.value).toBe(536.67);
+            expect(metrics?.sensors[0].current.unit).toBe(TemperatureUnit.RANKINE);
+        });
     });
 
     describe('buildSummary', () => {
