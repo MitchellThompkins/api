@@ -127,9 +127,10 @@ export class TemperatureService implements OnModuleInit {
                 return null;
             }
 
-            const targetUnit =
+            const configUnit =
                 this.configService.get<string>('api.temperature.default_unit') || 'celsius';
-            const isFahrenheit = targetUnit.toLowerCase() === 'fahrenheit';
+            const targetUnit =
+                (TemperatureUnit as any)[configUnit.toUpperCase()] || TemperatureUnit.CELSIUS;
 
             const sensors: TemperatureSensor[] = allRawSensors.map((r) => {
                 const rawCurrent: TemperatureReading = {
@@ -150,12 +151,12 @@ export class TemperatureService implements OnModuleInit {
                 const rawHistory = this.history.getHistory(r.id);
 
                 // Convert for output
-                const current = this.convertReading(rawCurrent, isFahrenheit) as TemperatureReading;
+                const current = this.convertReading(rawCurrent, targetUnit) as TemperatureReading;
                 const history = rawHistory
-                    .map((h) => this.convertReading(h, isFahrenheit))
+                    .map((h) => this.convertReading(h, targetUnit))
                     .filter((h): h is TemperatureReading => h !== undefined);
-                const minConverted = this.convertReading(min, isFahrenheit);
-                const maxConverted = this.convertReading(max, isFahrenheit);
+                const minConverted = this.convertReading(min, targetUnit);
+                const maxConverted = this.convertReading(max, targetUnit);
 
                 return {
                     id: r.id,
@@ -188,8 +189,8 @@ export class TemperatureService implements OnModuleInit {
             return null;
         }
 
-        const targetUnit = this.configService.get<string>('api.temperature.default_unit') || 'celsius';
-        const isFahrenheit = targetUnit.toLowerCase() === 'fahrenheit';
+        const configUnit = this.configService.get<string>('api.temperature.default_unit') || 'celsius';
+        const targetUnit = (TemperatureUnit as any)[configUnit.toUpperCase()] || TemperatureUnit.CELSIUS;
 
         const sensors = allSensorIds
             .map((sensorId): TemperatureSensor | null => {
@@ -201,12 +202,12 @@ export class TemperatureService implements OnModuleInit {
                 if (!rawCurrent) return null;
 
                 // Convert for output
-                const current = this.convertReading(rawCurrent, isFahrenheit) as TemperatureReading;
+                const current = this.convertReading(rawCurrent, targetUnit) as TemperatureReading;
                 const history = rawHistory
-                    .map((h) => this.convertReading(h, isFahrenheit))
+                    .map((h) => this.convertReading(h, targetUnit))
                     .filter((h): h is TemperatureReading => h !== undefined);
-                const minConverted = this.convertReading(min, isFahrenheit);
-                const maxConverted = this.convertReading(max, isFahrenheit);
+                const minConverted = this.convertReading(min, targetUnit);
+                const maxConverted = this.convertReading(max, targetUnit);
 
                 return {
                     id: sensorId,
@@ -231,25 +232,54 @@ export class TemperatureService implements OnModuleInit {
 
     private convertReading(
         reading: TemperatureReading | undefined,
-        toFahrenheit: boolean
+        targetUnit: TemperatureUnit
     ): TemperatureReading | undefined {
         if (!reading) return undefined;
 
-        let val = reading.value;
-        let unit = reading.unit;
+        let celsius: number;
 
-        if (toFahrenheit && reading.unit === TemperatureUnit.CELSIUS) {
-            val = (val * 9) / 5 + 32;
-            unit = TemperatureUnit.FAHRENHEIT;
-        } else if (!toFahrenheit && reading.unit === TemperatureUnit.FAHRENHEIT) {
-            val = ((val - 32) * 5) / 9;
-            unit = TemperatureUnit.CELSIUS;
+        // Convert input to Celsius
+        switch (reading.unit) {
+            case TemperatureUnit.CELSIUS:
+                celsius = reading.value;
+                break;
+            case TemperatureUnit.FAHRENHEIT:
+                celsius = ((reading.value - 32) * 5) / 9;
+                break;
+            case TemperatureUnit.KELVIN:
+                celsius = reading.value - 273.15;
+                break;
+            case TemperatureUnit.RANKINE:
+                celsius = ((reading.value - 491.67) * 5) / 9;
+                break;
+            default:
+                celsius = reading.value;
+        }
+
+        let targetValue: number;
+
+        // Convert Celsius to target
+        switch (targetUnit) {
+            case TemperatureUnit.CELSIUS:
+                targetValue = celsius;
+                break;
+            case TemperatureUnit.FAHRENHEIT:
+                targetValue = (celsius * 9) / 5 + 32;
+                break;
+            case TemperatureUnit.KELVIN:
+                targetValue = celsius + 273.15;
+                break;
+            case TemperatureUnit.RANKINE:
+                targetValue = ((celsius + 273.15) * 9) / 5;
+                break;
+            default:
+                targetValue = celsius;
         }
 
         return {
             ...reading,
-            value: Number(val.toFixed(2)), // Optional: round to 2 decimal places
-            unit,
+            value: Number(targetValue.toFixed(2)),
+            unit: targetUnit,
         };
     }
 
