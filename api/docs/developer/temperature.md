@@ -4,7 +4,9 @@ The Temperature Monitoring feature allows the Unraid API to collect and expose t
 
 ## Configuration
 
-You can configure the temperature monitoring behavior in your `api.json` (or via environment variables).
+You can configure the temperature monitoring behavior in your `api.json` (or via
+environment variables). Nominally the `api.json` file is found at
+`/boot/config/plugins/dynamix.my.servers/configs/`.
 
 ### `api.temperature` Object
 
@@ -36,6 +38,49 @@ Customize warning and critical thresholds.
 | `cpu_critical` | `number` | `85` | Critical threshold for CPU. |
 | `disk_warning` | `number` | `50` | Warning threshold for Disks. |
 | `disk_critical` | `number` | `60` | Critical threshold for Disks. |
+
+### Sample Configuration
+
+Example of an `api.json` configuration file:
+
+```json
+{
+  "version": "4.28.2+9196778e",
+  "extraOrigins": [],
+  "sandbox": true,
+  "ssoSubIds": [],
+  "plugins": [
+    "unraid-api-plugin-connect"
+  ],
+  "temperature": {
+    "enabled": true,
+    "polling_interval": 10000,
+    "default_unit": "celsius",
+    "history": {
+      "max_readings": 144,
+      "retention_ms": 86400000
+    },
+    "thresholds": {
+      "cpu_warning": 75,
+      "cpu_critical": 90,
+      "disk_warning": 50,
+      "disk_critical": 60
+    },
+    "sensors": {
+      "lm_sensors": {
+        "enabled": true,
+        "config_path": "/etc/sensors3.conf"
+      },
+      "smartctl": {
+        "enabled": true
+      },
+      "ipmi": {
+        "enabled": false
+      }
+    }
+  }
+}
+```
 
 ## GraphQL API
 
