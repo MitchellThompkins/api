@@ -2,6 +2,7 @@ import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { DiskSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/disk_sensors.service.js';
+import { IpmiSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/ipmi_sensors.service.js';
 import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm_sensors.service.js';
 import {
     RawTemperatureSensor,
@@ -31,6 +32,7 @@ export class TemperatureService implements OnModuleInit {
         // Inject all available sensor providers
         private readonly lmSensors: LmSensorsService,
         private readonly diskSensors: DiskSensorsService,
+        private readonly ipmiSensors: IpmiSensorsService,
 
         // Future: private readonly gpuSensors: GpuSensorsService,
         // Future: private readonly diskSensors: DiskSensorsService,
@@ -47,6 +49,7 @@ export class TemperatureService implements OnModuleInit {
         // 1. Get sensor specific configs
         const lmSensorsConfig = this.configService.get('api.temperature.sensors.lm_sensors');
         const smartctlConfig = this.configService.get('api.temperature.sensors.smartctl');
+        const ipmiConfig = this.configService.get('api.temperature.sensors.ipmi');
 
         // 2. Define providers with their config checks
         // We default to TRUE if the config is missing
@@ -59,8 +62,11 @@ export class TemperatureService implements OnModuleInit {
                 service: this.diskSensors,
                 enabled: smartctlConfig?.enabled ?? true,
             },
+            {
+                service: this.ipmiSensors,
+                enabled: ipmiConfig?.enabled ?? true,
+            },
             // TODO(@mitchellthompkins): this.gpuSensors,
-            // TODO(@mitchellthompkins): this.ipmiSensors,
         ];
 
         for (const provider of potentialProviders) {
@@ -121,32 +127,44 @@ export class TemperatureService implements OnModuleInit {
                 return null;
             }
 
+            const targetUnit =
+                this.configService.get<string>('api.temperature.default_unit') || 'celsius';
+            const isFahrenheit = targetUnit.toLowerCase() === 'fahrenheit';
+
             const sensors: TemperatureSensor[] = allRawSensors.map((r) => {
-                const current: TemperatureReading = {
+                const rawCurrent: TemperatureReading = {
                     value: r.value,
                     unit: r.unit,
                     timestamp: new Date(),
                     status: this.computeStatus(r.value, r.type),
                 };
 
-                // Record in history
-                this.history.record(r.id, current, {
+                // Record in history (ALWAYS RAW)
+                this.history.record(r.id, rawCurrent, {
                     name: r.name,
                     type: r.type,
                 });
 
-                // Get historical data
+                // Get historical data (RAW)
                 const { min, max } = this.history.getMinMax(r.id);
-                const historicalReadings = this.history.getHistory(r.id);
+                const rawHistory = this.history.getHistory(r.id);
+
+                // Convert for output
+                const current = this.convertReading(rawCurrent, isFahrenheit) as TemperatureReading;
+                const history = rawHistory
+                    .map((h) => this.convertReading(h, isFahrenheit))
+                    .filter((h): h is TemperatureReading => h !== undefined);
+                const minConverted = this.convertReading(min, isFahrenheit);
+                const maxConverted = this.convertReading(max, isFahrenheit);
 
                 return {
                     id: r.id,
                     name: r.name,
                     type: r.type,
                     current,
-                    min,
-                    max,
-                    history: historicalReadings,
+                    min: minConverted,
+                    max: maxConverted,
+                    history,
                     warning: this.getThresholdsForType(r.type).warning,
                     critical: this.getThresholdsForType(r.type).critical,
                 };
@@ -170,29 +188,68 @@ export class TemperatureService implements OnModuleInit {
             return null;
         }
 
-        const sensors: TemperatureSensor[] = allSensorIds.map((sensorId) => {
-            const { min, max } = this.history.getMinMax(sensorId);
-            const historicalReadings = this.history.getHistory(sensorId);
-            const current = historicalReadings[historicalReadings.length - 1];
-            const metadata = this.history.getMetadata(sensorId)!;
+        const targetUnit = this.configService.get<string>('api.temperature.default_unit') || 'celsius';
+        const isFahrenheit = targetUnit.toLowerCase() === 'fahrenheit';
 
-            return {
-                id: sensorId,
-                name: metadata.name,
-                type: metadata.type,
-                current,
-                min,
-                max,
-                history: historicalReadings,
-                warning: this.getThresholdsForType(metadata.type).warning,
-                critical: this.getThresholdsForType(metadata.type).critical,
-            };
-        });
+        const sensors = allSensorIds
+            .map((sensorId): TemperatureSensor | null => {
+                const { min, max } = this.history.getMinMax(sensorId);
+                const rawHistory = this.history.getHistory(sensorId);
+                const rawCurrent = rawHistory[rawHistory.length - 1];
+                const metadata = this.history.getMetadata(sensorId)!;
+
+                if (!rawCurrent) return null;
+
+                // Convert for output
+                const current = this.convertReading(rawCurrent, isFahrenheit) as TemperatureReading;
+                const history = rawHistory
+                    .map((h) => this.convertReading(h, isFahrenheit))
+                    .filter((h): h is TemperatureReading => h !== undefined);
+                const minConverted = this.convertReading(min, isFahrenheit);
+                const maxConverted = this.convertReading(max, isFahrenheit);
+
+                return {
+                    id: sensorId,
+                    name: metadata.name,
+                    type: metadata.type,
+                    current,
+                    min: minConverted,
+                    max: maxConverted,
+                    history,
+                    warning: this.getThresholdsForType(metadata.type).warning,
+                    critical: this.getThresholdsForType(metadata.type).critical,
+                };
+            })
+            .filter((s): s is TemperatureSensor => s !== null);
 
         return {
             id: 'temperature-metrics',
             sensors,
             summary: this.buildSummary(sensors),
+        };
+    }
+
+    private convertReading(
+        reading: TemperatureReading | undefined,
+        toFahrenheit: boolean
+    ): TemperatureReading | undefined {
+        if (!reading) return undefined;
+
+        let val = reading.value;
+        let unit = reading.unit;
+
+        if (toFahrenheit && reading.unit === TemperatureUnit.CELSIUS) {
+            val = (val * 9) / 5 + 32;
+            unit = TemperatureUnit.FAHRENHEIT;
+        } else if (!toFahrenheit && reading.unit === TemperatureUnit.FAHRENHEIT) {
+            val = ((val - 32) * 5) / 9;
+            unit = TemperatureUnit.CELSIUS;
+        }
+
+        return {
+            ...reading,
+            value: Number(val.toFixed(2)), // Optional: round to 2 decimal places
+            unit,
         };
     }
 

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DiskSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/disk_sensors.service.js';
+import { IpmiSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/ipmi_sensors.service.js';
 import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm_sensors.service.js';
 import { TemperatureHistoryService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature_history.service.js';
 import {
@@ -16,6 +17,7 @@ describe('TemperatureService', () => {
     let service: TemperatureService;
     let lmSensors: LmSensorsService;
     let diskSensors: DiskSensorsService;
+    let ipmiSensors: IpmiSensorsService;
     let history: TemperatureHistoryService;
     let configService: ConfigService;
 
@@ -40,13 +42,19 @@ describe('TemperatureService', () => {
             read: vi.fn().mockResolvedValue([]),
         } as any;
 
+        ipmiSensors = {
+            id: 'ipmi-sensors',
+            isAvailable: vi.fn().mockResolvedValue(false), // Default to unavailable
+            read: vi.fn().mockResolvedValue([]),
+        } as any;
+
         configService = {
             get: vi.fn((key: string, defaultValue?: any) => defaultValue),
         } as any;
 
         history = new TemperatureHistoryService(configService);
 
-        service = new TemperatureService(lmSensors, diskSensors, history, configService);
+        service = new TemperatureService(lmSensors, diskSensors, ipmiSensors, history, configService);
     });
 
     describe('initialization', () => {
@@ -85,8 +93,15 @@ describe('TemperatureService', () => {
         it('should return null when no providers available', async () => {
             vi.mocked(lmSensors.isAvailable).mockResolvedValue(false);
             vi.mocked(diskSensors.isAvailable).mockResolvedValue(false);
+            vi.mocked(ipmiSensors.isAvailable).mockResolvedValue(false);
 
-            const emptyService = new TemperatureService(lmSensors, diskSensors, history, configService);
+            const emptyService = new TemperatureService(
+                lmSensors,
+                diskSensors,
+                ipmiSensors,
+                history,
+                configService
+            );
             await emptyService.onModuleInit();
 
             const metrics = await emptyService.getMetrics();
@@ -121,6 +136,7 @@ describe('TemperatureService', () => {
             const customService = new TemperatureService(
                 lmSensors,
                 diskSensors,
+                ipmiSensors,
                 history,
                 customConfigService
             );

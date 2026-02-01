@@ -88,3 +88,4 @@ For detailed information about specific features:
 ## License
 
 Copyright Lime Technology Inc. All rights reserved.
+- [Temperature Monitoring](docs/developer/temperature.md) - Configuration and API details for temperature sensors
