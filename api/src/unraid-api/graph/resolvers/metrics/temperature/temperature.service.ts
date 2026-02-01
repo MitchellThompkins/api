@@ -325,19 +325,28 @@ export class TemperatureService implements OnModuleInit {
 
     private getThresholdsForType(type: SensorType): { warning: number; critical: number } {
         const thresholds = this.configService.get('api.temperature.thresholds', {});
+        const configUnitStr =
+            this.configService.get<string>('api.temperature.default_unit') || 'celsius';
+        const sourceUnit =
+            (TemperatureUnit as any)[configUnitStr.toUpperCase()] || TemperatureUnit.CELSIUS;
+
+        const getVal = (val: number | undefined, defaultCelsius: number): number => {
+            if (val === undefined || val === null) return defaultCelsius;
+            return this.convertValue(val, sourceUnit, TemperatureUnit.CELSIUS);
+        };
 
         switch (type) {
             case SensorType.CPU_PACKAGE:
             case SensorType.CPU_CORE:
                 return {
-                    warning: thresholds.cpu_warning ?? 70,
-                    critical: thresholds.cpu_critical ?? 85,
+                    warning: getVal(thresholds.cpu_warning, 70),
+                    critical: getVal(thresholds.cpu_critical, 85),
                 };
             case SensorType.DISK:
             case SensorType.NVME:
                 return {
-                    warning: thresholds.disk_warning ?? 50,
-                    critical: thresholds.disk_critical ?? 60,
+                    warning: getVal(thresholds.disk_warning, 50),
+                    critical: getVal(thresholds.disk_critical, 60),
                 };
             default:
                 return { warning: 80, critical: 90 };

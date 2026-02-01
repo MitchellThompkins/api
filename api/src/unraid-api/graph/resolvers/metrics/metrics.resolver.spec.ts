@@ -89,7 +89,6 @@ describe('MetricsResolver', () => {
                     provide: TemperatureService,
                     useValue: {
                         getMetrics: vi.fn().mockResolvedValue(null),
-                        // Add any other methods your resolver calls
                     },
                 },
                 {

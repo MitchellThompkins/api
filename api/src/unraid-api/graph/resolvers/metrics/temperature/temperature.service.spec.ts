@@ -260,6 +260,49 @@ describe('TemperatureService', () => {
             expect(metrics?.sensors[0].warning).toBe(158);
             expect(metrics?.sensors[0].critical).toBe(185);
         });
+
+        it('should interpret user-defined thresholds in the default unit', async () => {
+            const customConfigService = {
+                get: vi.fn((key: string, defaultValue?: any) => {
+                    if (key === 'api.temperature.default_unit') {
+                        return 'fahrenheit';
+                    }
+                    if (key === 'api.temperature.thresholds') {
+                        // User sets warning to 160F (approx 71.1C)
+                        return { cpu_warning: 160 };
+                    }
+                    return defaultValue;
+                }),
+            } as any;
+
+            const customService = new TemperatureService(
+                lmSensors,
+                diskSensors,
+                ipmiSensors,
+                history,
+                customConfigService
+            );
+            await customService.onModuleInit();
+
+            vi.mocked(lmSensors.read).mockResolvedValue([
+                {
+                    id: 'cpu:package',
+                    name: 'CPU Package',
+                    type: SensorType.CPU_PACKAGE,
+                    value: 72, // 72C (161.6F) -> Should trigger warning (161.6 > 160)
+                    unit: TemperatureUnit.CELSIUS,
+                },
+            ]);
+
+            const metrics = await customService.getMetrics();
+
+            // Check status: 72C (161.6F) > 160F Warning -> Should be WARNING
+            expect(metrics?.sensors[0].current.status).toBe(TemperatureStatus.WARNING);
+
+            // Check returned threshold: Should be 160 (F)
+            // Internal flow: Config 160(F) -> getThresholds(converts to 71.11C) -> getMetrics(converts 71.11C back to F) -> 160
+            expect(metrics?.sensors[0].warning).toBe(160);
+        });
     });
 
     describe('buildSummary', () => {
