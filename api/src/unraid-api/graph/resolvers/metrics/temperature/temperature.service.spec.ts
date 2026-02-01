@@ -224,6 +224,42 @@ describe('TemperatureService', () => {
             expect(metrics?.sensors[0].current.value).toBe(536.67);
             expect(metrics?.sensors[0].current.unit).toBe(TemperatureUnit.RANKINE);
         });
+
+        it('should return thresholds in the target unit', async () => {
+            const customConfigService = {
+                get: vi.fn((key: string, defaultValue?: any) => {
+                    if (key === 'api.temperature.default_unit') {
+                        return 'fahrenheit';
+                    }
+                    return defaultValue;
+                }),
+            } as any;
+
+            const customService = new TemperatureService(
+                lmSensors,
+                diskSensors,
+                ipmiSensors,
+                history,
+                customConfigService
+            );
+            await customService.onModuleInit();
+
+            vi.mocked(lmSensors.read).mockResolvedValue([
+                {
+                    id: 'cpu:package',
+                    name: 'CPU Package',
+                    type: SensorType.CPU_PACKAGE,
+                    value: 20,
+                    unit: TemperatureUnit.CELSIUS,
+                },
+            ]);
+
+            const metrics = await customService.getMetrics();
+            // Default CPU warning is 70C -> 158F
+            // Default CPU critical is 85C -> 185F
+            expect(metrics?.sensors[0].warning).toBe(158);
+            expect(metrics?.sensors[0].critical).toBe(185);
+        });
     });
 
     describe('buildSummary', () => {

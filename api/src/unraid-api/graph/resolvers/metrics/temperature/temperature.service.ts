@@ -137,7 +137,7 @@ export class TemperatureService implements OnModuleInit {
                     value: r.value,
                     unit: r.unit,
                     timestamp: new Date(),
-                    status: this.computeStatus(r.value, r.type),
+                    status: this.computeStatus(r.value, r.unit, r.type),
                 };
 
                 // Record in history (ALWAYS RAW)
@@ -158,6 +158,18 @@ export class TemperatureService implements OnModuleInit {
                 const minConverted = this.convertReading(min, targetUnit);
                 const maxConverted = this.convertReading(max, targetUnit);
 
+                const rawThresholds = this.getThresholdsForType(r.type);
+                const warning = this.convertValue(
+                    rawThresholds.warning,
+                    TemperatureUnit.CELSIUS,
+                    targetUnit
+                );
+                const critical = this.convertValue(
+                    rawThresholds.critical,
+                    TemperatureUnit.CELSIUS,
+                    targetUnit
+                );
+
                 return {
                     id: r.id,
                     name: r.name,
@@ -166,8 +178,8 @@ export class TemperatureService implements OnModuleInit {
                     min: minConverted,
                     max: maxConverted,
                     history,
-                    warning: this.getThresholdsForType(r.type).warning,
-                    critical: this.getThresholdsForType(r.type).critical,
+                    warning,
+                    critical,
                 };
             });
 
@@ -209,6 +221,18 @@ export class TemperatureService implements OnModuleInit {
                 const minConverted = this.convertReading(min, targetUnit);
                 const maxConverted = this.convertReading(max, targetUnit);
 
+                const rawThresholds = this.getThresholdsForType(metadata.type);
+                const warning = this.convertValue(
+                    rawThresholds.warning,
+                    TemperatureUnit.CELSIUS,
+                    targetUnit
+                );
+                const critical = this.convertValue(
+                    rawThresholds.critical,
+                    TemperatureUnit.CELSIUS,
+                    targetUnit
+                );
+
                 return {
                     id: sensorId,
                     name: metadata.name,
@@ -217,8 +241,8 @@ export class TemperatureService implements OnModuleInit {
                     min: minConverted,
                     max: maxConverted,
                     history,
-                    warning: this.getThresholdsForType(metadata.type).warning,
-                    critical: this.getThresholdsForType(metadata.type).critical,
+                    warning,
+                    critical,
                 };
             })
             .filter((s): s is TemperatureSensor => s !== null);
@@ -236,30 +260,40 @@ export class TemperatureService implements OnModuleInit {
     ): TemperatureReading | undefined {
         if (!reading) return undefined;
 
+        return {
+            ...reading,
+            value: this.convertValue(reading.value, reading.unit, targetUnit),
+            unit: targetUnit,
+        };
+    }
+
+    private convertValue(value: number, fromUnit: TemperatureUnit, toUnit: TemperatureUnit): number {
+        if (fromUnit === toUnit) return Number(value.toFixed(2));
+
         let celsius: number;
 
         // Convert input to Celsius
-        switch (reading.unit) {
+        switch (fromUnit) {
             case TemperatureUnit.CELSIUS:
-                celsius = reading.value;
+                celsius = value;
                 break;
             case TemperatureUnit.FAHRENHEIT:
-                celsius = ((reading.value - 32) * 5) / 9;
+                celsius = ((value - 32) * 5) / 9;
                 break;
             case TemperatureUnit.KELVIN:
-                celsius = reading.value - 273.15;
+                celsius = value - 273.15;
                 break;
             case TemperatureUnit.RANKINE:
-                celsius = ((reading.value - 491.67) * 5) / 9;
+                celsius = ((value - 491.67) * 5) / 9;
                 break;
             default:
-                celsius = reading.value;
+                celsius = value;
         }
 
         let targetValue: number;
 
         // Convert Celsius to target
-        switch (targetUnit) {
+        switch (toUnit) {
             case TemperatureUnit.CELSIUS:
                 targetValue = celsius;
                 break;
@@ -276,20 +310,17 @@ export class TemperatureService implements OnModuleInit {
                 targetValue = celsius;
         }
 
-        return {
-            ...reading,
-            value: Number(targetValue.toFixed(2)),
-            unit: targetUnit,
-        };
+        return Number(targetValue.toFixed(2));
     }
 
     // Make status computation type-aware for future per-type thresholds
-    private computeStatus(value: number, type: SensorType): TemperatureStatus {
-        // Future: load thresholds from config based on type
+    private computeStatus(value: number, unit: TemperatureUnit, type: SensorType): TemperatureStatus {
+        // We always compute status using Celsius thresholds
+        const celsiusValue = this.convertValue(value, unit, TemperatureUnit.CELSIUS);
         const thresholds = this.getThresholdsForType(type);
 
-        if (value >= thresholds.critical) return TemperatureStatus.CRITICAL;
-        if (value >= thresholds.warning) return TemperatureStatus.WARNING;
+        if (celsiusValue >= thresholds.critical) return TemperatureStatus.CRITICAL;
+        if (celsiusValue >= thresholds.warning) return TemperatureStatus.WARNING;
         return TemperatureStatus.NORMAL;
     }
 
