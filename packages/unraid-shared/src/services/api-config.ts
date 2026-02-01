@@ -60,6 +60,14 @@ export class SmartctlConfig {
 }
 
 @ObjectType()
+export class IpmiConfig {
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+}
+
+@ObjectType()
 export class SensorsConfig {
   @Field(() => LmSensorsConfig, { nullable: true })
   @IsOptional()
@@ -72,6 +80,12 @@ export class SensorsConfig {
   @ValidateNested()
   @Type(() => SmartctlConfig)
   smartctl?: SmartctlConfig;
+
+  @Field(() => IpmiConfig, { nullable: true })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => IpmiConfig)
+  ipmi?: IpmiConfig;
 }
 
 @ObjectType()
