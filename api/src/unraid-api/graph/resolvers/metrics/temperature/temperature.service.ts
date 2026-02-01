@@ -35,7 +35,6 @@ export class TemperatureService implements OnModuleInit {
         private readonly ipmiSensors: IpmiSensorsService,
 
         // Future: private readonly gpuSensors: GpuSensorsService,
-        // Future: private readonly diskSensors: DiskSensorsService,
         private readonly history: TemperatureHistoryService,
         private readonly configService: ConfigService
     ) {}
