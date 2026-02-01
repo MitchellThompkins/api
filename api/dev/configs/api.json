@@ -3,5 +3,31 @@
   "extraOrigins": [],
   "sandbox": false,
   "ssoSubIds": [],
-  "plugins": []
+  "plugins": [],
+  "temperature": {
+    "enabled": true,
+    "polling_interval": 5000,
+    "default_unit": "celsius",
+    "history": {
+      "max_readings": 100,
+      "retention_ms": 86400000
+    },
+    "thresholds": {
+      "cpu_warning": 70,
+      "cpu_critical": 85,
+      "disk_warning": 50,
+      "disk_critical": 60
+    },
+    "sensors": {
+      "lm_sensors": {
+        "enabled": true
+      },
+      "smartctl": {
+        "enabled": true
+      },
+      "ipmi": {
+        "enabled": true
+      }
+    }
+  }
 }
