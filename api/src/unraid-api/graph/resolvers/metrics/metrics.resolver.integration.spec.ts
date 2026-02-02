@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { pubsub, PUBSUB_CHANNEL } from '@app/core/pubsub.js';
 import { CpuTopologyService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu-topology.service.js';
 import { CpuService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu.service.js';
-import { MemoryMetrics } from '@app/unraid-api/graph/resolvers/info/memory/memory.model.js';
+import { MemoryUtilization } from '@app/unraid-api/graph/resolvers/info/memory/memory.model.js';
 import { MemoryService } from '@app/unraid-api/graph/resolvers/info/memory/memory.service.js';
 import { MetricsResolver } from '@app/unraid-api/graph/resolvers/metrics/metrics.resolver.js';
 import { TemperatureService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.service.js';
@@ -152,7 +152,7 @@ describe('MetricsResolver Integration Tests', () => {
                     swapUsed: 0,
                     swapFree: 0,
                     percentSwapTotal: 0,
-                } as MemoryMetrics;
+                } as MemoryUtilization;
             });
 
             // Trigger polling by simulating subscription

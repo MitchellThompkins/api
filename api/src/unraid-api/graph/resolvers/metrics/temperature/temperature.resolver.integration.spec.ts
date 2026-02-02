@@ -9,6 +9,7 @@ import { MemoryService } from '@app/unraid-api/graph/resolvers/info/memory/memor
 import { MetricsResolver } from '@app/unraid-api/graph/resolvers/metrics/metrics.resolver.js';
 import {
     SensorType,
+    TemperatureMetrics,
     TemperatureStatus,
     TemperatureUnit,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
@@ -203,8 +204,9 @@ describe('Temperature GraphQL Integration', () => {
                 summary: mockTemperatureMetrics.summary,
             };
 
-            // @ts-expect-error -- mocking partial TemperatureMetrics
-            vi.mocked(temperatureService.getMetrics).mockResolvedValue(multiSensorMetrics);
+            vi.mocked(temperatureService.getMetrics).mockResolvedValue(
+                multiSensorMetrics as unknown as TemperatureMetrics
+            );
 
             const result = await resolver.temperature();
 

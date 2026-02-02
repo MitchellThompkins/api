@@ -2,9 +2,9 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import type { Systeminformation } from 'systeminformation';
+import type { MockedFunction } from 'vitest';
 import { execa } from 'execa';
 import { blockDevices, diskLayout } from 'systeminformation';
-// Vitest imports
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -21,6 +21,8 @@ import {
 import { DisksService } from '@app/unraid-api/graph/resolvers/disks/disks.service.js';
 import { batchProcess } from '@app/utils.js';
 
+// Vitest imports
+
 // Mock the external dependencies using vi
 vi.mock('execa');
 vi.mock('systeminformation');
@@ -32,10 +34,10 @@ vi.mock('@app/utils.js', () => ({
 }));
 
 // Remove explicit type assertions for mocks
-const mockExeca = execa as unknown as vi.MockedFunction<typeof execa>;
-const mockBlockDevices = blockDevices as unknown as vi.MockedFunction<typeof blockDevices>;
-const mockDiskLayout = diskLayout as unknown as vi.MockedFunction<typeof diskLayout>;
-const mockBatchProcess = batchProcess as unknown as vi.MockedFunction<typeof batchProcess>;
+const mockExeca = execa as unknown as MockedFunction<typeof execa>;
+const mockBlockDevices = blockDevices as unknown as MockedFunction<typeof blockDevices>;
+const mockDiskLayout = diskLayout as unknown as MockedFunction<typeof diskLayout>;
+const mockBatchProcess = batchProcess as unknown as MockedFunction<typeof batchProcess>;
 
 describe('DisksService', () => {
     let service: DisksService;
@@ -335,7 +337,7 @@ describe('DisksService', () => {
             command: '',
             cwd: '',
             isCanceled: false,
-        }); // Default successful execa
+        } as unknown as Awaited<ReturnType<typeof execa>>); // Default successful execa
     });
 
     it('should be defined', () => {
@@ -523,8 +525,7 @@ describe('DisksService', () => {
                 command: '',
                 cwd: '',
                 isCanceled: false,
-            });
-
+            } as unknown as Awaited<ReturnType<typeof execa>>);
             const temperature = await service.getTemperature('/dev/sda');
             expect(temperature).toBe(42);
             expect(mockExeca).toHaveBeenCalledWith('smartctl', [
@@ -560,8 +561,7 @@ describe('DisksService', () => {
                 command: '',
                 cwd: '',
                 isCanceled: false,
-            });
-
+            } as unknown as Awaited<ReturnType<typeof execa>>);
             const temperature = await service.getTemperature('/dev/sda');
             expect(temperature).toBeNull();
         });
@@ -590,8 +590,7 @@ describe('DisksService', () => {
                 command: '',
                 cwd: '',
                 isCanceled: false,
-            });
-
+            } as unknown as Awaited<ReturnType<typeof execa>>);
             const temperature = await service.getTemperature('/dev/sda');
             expect(temperature).toBe(30);
         });
@@ -620,8 +619,7 @@ describe('DisksService', () => {
                 command: '',
                 cwd: '',
                 isCanceled: false,
-            });
-
+            } as unknown as Awaited<ReturnType<typeof execa>>);
             const temperature = await service.getTemperature('/dev/sda');
             expect(temperature).toBe(35);
         });
@@ -644,8 +642,7 @@ describe('DisksService', () => {
                 command: '',
                 cwd: '',
                 isCanceled: false,
-            });
-
+            } as unknown as Awaited<ReturnType<typeof execa>>);
             const temperature = await service.getTemperature('/dev/sda');
             expect(temperature).toBe(0);
         });
@@ -661,8 +658,7 @@ describe('DisksService', () => {
                 command: '',
                 cwd: '',
                 isCanceled: false,
-            });
-
+            } as unknown as Awaited<ReturnType<typeof execa>>);
             const temperature = await service.getTemperature('/dev/sda');
             expect(temperature).toBeNull();
 
@@ -676,8 +672,7 @@ describe('DisksService', () => {
                 command: '',
                 cwd: '',
                 isCanceled: false,
-            });
-
+            } as unknown as Awaited<ReturnType<typeof execa>>);
             const temperature2 = await service.getTemperature('/dev/sda');
             expect(temperature2).toBeNull();
         });
