@@ -260,7 +260,7 @@ describe('MetricsResolver', () => {
             // Find the temperature callback
             const call = registerTopicMock.mock.calls.find((c) => c[0] === 'TEMPERATURE_METRICS');
             expect(call).toBeDefined();
-            const callback = call[1];
+            const callback = call![1];
 
             // Execute callback
             await callback();
@@ -302,7 +302,7 @@ describe('MetricsResolver', () => {
             // Find the temperature callback
             const call = registerTopicMock.mock.calls.find((c) => c[0] === 'TEMPERATURE_METRICS');
             expect(call).toBeDefined();
-            const callback = call[1];
+            const callback = call![1];
 
             // Execute callback
             await callback();
