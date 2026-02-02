@@ -156,23 +156,14 @@ describe('TemperatureService', () => {
         });
 
         it('should return temperature metrics in Kelvin when configured', async () => {
-            const customConfigService = {
-                get: vi.fn((key: string, defaultValue?: any) => {
-                    if (key === 'api.temperature.default_unit') {
-                        return 'kelvin';
-                    }
-                    return defaultValue;
-                }),
-            } as any;
+            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === 'api.temperature.default_unit') {
+                    return 'kelvin';
+                }
+                return defaultValue;
+            });
 
-            const customService = new TemperatureService(
-                lmSensors,
-                diskSensors,
-                ipmiSensors,
-                history,
-                customConfigService
-            );
-            await customService.onModuleInit();
+            await service.onModuleInit();
 
             vi.mocked(lmSensors.read).mockResolvedValue([
                 {
@@ -184,29 +175,20 @@ describe('TemperatureService', () => {
                 },
             ]);
 
-            const metrics = await customService.getMetrics();
+            const metrics = await service.getMetrics();
             expect(metrics?.sensors[0].current.value).toBe(273.15);
             expect(metrics?.sensors[0].current.unit).toBe(TemperatureUnit.KELVIN);
         });
 
         it('should return temperature metrics in Rankine when configured', async () => {
-            const customConfigService = {
-                get: vi.fn((key: string, defaultValue?: any) => {
-                    if (key === 'api.temperature.default_unit') {
-                        return 'rankine';
-                    }
-                    return defaultValue;
-                }),
-            } as any;
+            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === 'api.temperature.default_unit') {
+                    return 'rankine';
+                }
+                return defaultValue;
+            });
 
-            const customService = new TemperatureService(
-                lmSensors,
-                diskSensors,
-                ipmiSensors,
-                history,
-                customConfigService
-            );
-            await customService.onModuleInit();
+            await service.onModuleInit();
 
             vi.mocked(lmSensors.read).mockResolvedValue([
                 {
@@ -218,30 +200,21 @@ describe('TemperatureService', () => {
                 },
             ]);
 
-            const metrics = await customService.getMetrics();
+            const metrics = await service.getMetrics();
             // (25 + 273.15) * 9/5 = 536.67
             expect(metrics?.sensors[0].current.value).toBe(536.67);
             expect(metrics?.sensors[0].current.unit).toBe(TemperatureUnit.RANKINE);
         });
 
         it('should return thresholds in the target unit', async () => {
-            const customConfigService = {
-                get: vi.fn((key: string, defaultValue?: any) => {
-                    if (key === 'api.temperature.default_unit') {
-                        return 'fahrenheit';
-                    }
-                    return defaultValue;
-                }),
-            } as any;
+            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === 'api.temperature.default_unit') {
+                    return 'fahrenheit';
+                }
+                return defaultValue;
+            });
 
-            const customService = new TemperatureService(
-                lmSensors,
-                diskSensors,
-                ipmiSensors,
-                history,
-                customConfigService
-            );
-            await customService.onModuleInit();
+            await service.onModuleInit();
 
             vi.mocked(lmSensors.read).mockResolvedValue([
                 {
@@ -253,7 +226,7 @@ describe('TemperatureService', () => {
                 },
             ]);
 
-            const metrics = await customService.getMetrics();
+            const metrics = await service.getMetrics();
             // Default CPU warning is 70C -> 158F
             // Default CPU critical is 85C -> 185F
             expect(metrics?.sensors[0].warning).toBe(158);
@@ -261,27 +234,18 @@ describe('TemperatureService', () => {
         });
 
         it('should interpret user-defined thresholds in the default unit', async () => {
-            const customConfigService = {
-                get: vi.fn((key: string, defaultValue?: any) => {
-                    if (key === 'api.temperature.default_unit') {
-                        return 'fahrenheit';
-                    }
-                    if (key === 'api.temperature.thresholds') {
-                        // User sets warning to 160F (approx 71.1C)
-                        return { cpu_warning: 160 };
-                    }
-                    return defaultValue;
-                }),
-            } as any;
+            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === 'api.temperature.default_unit') {
+                    return 'fahrenheit';
+                }
+                if (key === 'api.temperature.thresholds') {
+                    // User sets warning to 160F (approx 71.1C)
+                    return { cpu_warning: 160 };
+                }
+                return defaultValue;
+            });
 
-            const customService = new TemperatureService(
-                lmSensors,
-                diskSensors,
-                ipmiSensors,
-                history,
-                customConfigService
-            );
-            await customService.onModuleInit();
+            await service.onModuleInit();
 
             vi.mocked(lmSensors.read).mockResolvedValue([
                 {
@@ -293,7 +257,7 @@ describe('TemperatureService', () => {
                 },
             ]);
 
-            const metrics = await customService.getMetrics();
+            const metrics = await service.getMetrics();
 
             // Check status: 72C (161.6F) > 160F Warning -> Should be WARNING
             expect(metrics?.sensors[0].current.status).toBe(TemperatureStatus.WARNING);
