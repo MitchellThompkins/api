@@ -32,10 +32,10 @@ vi.mock('@app/utils.js', () => ({
 }));
 
 // Remove explicit type assertions for mocks
-const mockExeca = execa as any; // Using 'any' for simplicity with complex mock setups
-const mockBlockDevices = blockDevices as any;
-const mockDiskLayout = diskLayout as any;
-const mockBatchProcess = batchProcess as any;
+const mockExeca = execa as unknown as vi.MockedFunction<typeof execa>;
+const mockBlockDevices = blockDevices as unknown as vi.MockedFunction<typeof blockDevices>;
+const mockDiskLayout = diskLayout as unknown as vi.MockedFunction<typeof diskLayout>;
+const mockBatchProcess = batchProcess as unknown as vi.MockedFunction<typeof batchProcess>;
 
 describe('DisksService', () => {
     let service: DisksService;
@@ -303,7 +303,7 @@ describe('DisksService', () => {
 
         // Create mock ConfigService
         const mockConfigService = {
-            get: vi.fn().mockImplementation((key: string, defaultValue?: any) => {
+            get: vi.fn().mockImplementation((key: string, defaultValue?: unknown) => {
                 if (key === 'store.emhttp.disks') {
                     return mockArrayDisks;
                 }
@@ -383,7 +383,7 @@ describe('DisksService', () => {
         });
 
         it('should handle empty state gracefully', async () => {
-            vi.mocked(configService.get).mockImplementation((key: string, defaultValue?: any) => {
+            vi.mocked(configService.get).mockImplementation((key: string, defaultValue?: unknown) => {
                 if (key === 'store.emhttp.disks') {
                     return [];
                 }

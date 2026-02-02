@@ -18,6 +18,15 @@ import {
     TemperatureUnit,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
 
+interface TemperatureThresholds {
+    cpu_warning?: number;
+    cpu_critical?: number;
+    disk_warning?: number;
+    disk_critical?: number;
+    warning?: number;
+    critical?: number;
+}
+
 // temperature.service.ts
 @Injectable()
 export class TemperatureService implements OnModuleInit {
@@ -136,8 +145,12 @@ export class TemperatureService implements OnModuleInit {
             const configUnit =
                 this.configService.get<string>('api.temperature.default_unit') || 'celsius';
             const targetUnit =
-                (TemperatureUnit as any)[configUnit.toUpperCase()] || TemperatureUnit.CELSIUS;
-            const thresholdConfig = this.configService.get('api.temperature.thresholds', {});
+                TemperatureUnit[configUnit.toUpperCase() as keyof typeof TemperatureUnit] ||
+                TemperatureUnit.CELSIUS;
+            const thresholdConfig = this.configService.get<TemperatureThresholds>(
+                'api.temperature.thresholds',
+                {}
+            );
 
             const sensors: TemperatureSensor[] = validSensors.map((r) => {
                 const rawCurrent: TemperatureReading = {
@@ -209,8 +222,13 @@ export class TemperatureService implements OnModuleInit {
         }
 
         const configUnit = this.configService.get<string>('api.temperature.default_unit') || 'celsius';
-        const targetUnit = (TemperatureUnit as any)[configUnit.toUpperCase()] || TemperatureUnit.CELSIUS;
-        const thresholdConfig = this.configService.get('api.temperature.thresholds', {});
+        const targetUnit =
+            TemperatureUnit[configUnit.toUpperCase() as keyof typeof TemperatureUnit] ||
+            TemperatureUnit.CELSIUS;
+        const thresholdConfig = this.configService.get<TemperatureThresholds>(
+            'api.temperature.thresholds',
+            {}
+        );
 
         const sensors = allSensorIds
             .map((sensorId): TemperatureSensor | null => {
@@ -330,7 +348,7 @@ export class TemperatureService implements OnModuleInit {
         value: number,
         unit: TemperatureUnit,
         type: SensorType,
-        thresholdConfig: any,
+        thresholdConfig: TemperatureThresholds,
         sourceUnit: TemperatureUnit
     ): TemperatureStatus {
         // We always compute status using Celsius thresholds
@@ -344,7 +362,7 @@ export class TemperatureService implements OnModuleInit {
 
     private getThresholdsForType(
         type: SensorType,
-        thresholds: any,
+        thresholds: TemperatureThresholds,
         sourceUnit: TemperatureUnit
     ): { warning: number; critical: number } {
         const getVal = (val: number | undefined, defaultCelsius: number): number => {

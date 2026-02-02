@@ -14,9 +14,10 @@ describe('TemperatureHistoryService', () => {
     let configService: ConfigService;
 
     beforeEach(() => {
+        // @ts-expect-error -- mocking partial ConfigService
         configService = {
-            get: (key: string, defaultValue?: any) => defaultValue,
-        } as any;
+            get: (key: string, defaultValue?: unknown) => defaultValue,
+        };
 
         service = new TemperatureHistoryService(configService);
     });
@@ -96,12 +97,13 @@ describe('TemperatureHistoryService', () => {
 
     describe('retention and trimming', () => {
         it('should keep only max readings per sensor', () => {
-            const configServiceWithLimit = {
-                get: (key: string, defaultValue?: any) => {
+            // @ts-expect-error -- mocking partial ConfigService
+            const configServiceWithLimit: ConfigService = {
+                get: (key: string, defaultValue?: unknown) => {
                     if (key === 'api.temperature.history.max_readings') return 3;
                     return defaultValue;
                 },
-            } as any;
+            };
 
             const limitedService = new TemperatureHistoryService(configServiceWithLimit);
             const metadata = { name: 'CPU', type: SensorType.CPU_CORE };
