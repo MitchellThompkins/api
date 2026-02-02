@@ -16,12 +16,13 @@ import {
 export class IpmiSensorsService implements TemperatureSensorProvider {
     readonly id = 'ipmi-sensors';
     private readonly logger = new Logger(IpmiSensorsService.name);
+    private readonly timeoutMs = 3000;
 
     constructor(private readonly configService: ConfigService) {}
 
     async isAvailable(): Promise<boolean> {
         try {
-            await execa('ipmitool', ['-V']);
+            await execa('ipmitool', ['-V'], { timeout: this.timeoutMs });
             return true;
         } catch {
             return false;
@@ -34,7 +35,9 @@ export class IpmiSensorsService implements TemperatureSensorProvider {
 
         try {
             // 'sdr type temperature' returns sensors specifically for temperature
-            const { stdout } = await execa('ipmitool', ['sdr', 'type', 'temperature']);
+            const { stdout } = await execa('ipmitool', ['sdr', 'type', 'temperature'], {
+                timeout: this.timeoutMs,
+            });
 
             return this.parseIpmiOutput(stdout);
         } catch (err) {
