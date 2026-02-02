@@ -13,9 +13,10 @@ Nominally the `api.json` file is found at
 | Key | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | `enabled` | `boolean` | `true` | Globally enable or disable temperature monitoring. |
-| `default_unit` | `string` | `"celsius"` | The unit to return values in. Options: `"celsius"`, `"fahrenheit"`. |
+| `default_unit` | `string` | `"celsius"` | The unit to return values in. Options: `"celsius"`, `"fahrenheit"`, `"kelvin"`, `"rankine"`. |
 | `polling_interval` | `number` | `5000` | Polling interval in milliseconds for the subscription. |
-| `history_size` | `number` | `100` | (Internal) Number of historical data points to keep in memory per sensor. |
+| `history.max_readings` | `number` | `1000` | (Internal) Number of historical data points to keep in memory per sensor. |
+| `history.retention_ms` | `number` | `86400000` | (Internal) Retention period for historical data in milliseconds. |
 
 ### `api.temperature.sensors` Object
 
