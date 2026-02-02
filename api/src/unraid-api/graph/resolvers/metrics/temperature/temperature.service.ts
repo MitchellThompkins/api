@@ -121,8 +121,15 @@ export class TemperatureService implements OnModuleInit {
                 }
             }
 
-            if (allRawSensors.length === 0) {
-                this.logger.debug('No temperature sensors detected');
+            // Filter out NaN or infinite values
+            const validSensors = allRawSensors.filter((s) => Number.isFinite(s.value));
+
+            if (validSensors.length === 0) {
+                if (allRawSensors.length > 0) {
+                    this.logger.warn('All temperature sensors returned non-finite values');
+                } else {
+                    this.logger.debug('No temperature sensors detected');
+                }
                 return null;
             }
 
@@ -132,7 +139,7 @@ export class TemperatureService implements OnModuleInit {
                 (TemperatureUnit as any)[configUnit.toUpperCase()] || TemperatureUnit.CELSIUS;
             const thresholdConfig = this.configService.get('api.temperature.thresholds', {});
 
-            const sensors: TemperatureSensor[] = allRawSensors.map((r) => {
+            const sensors: TemperatureSensor[] = validSensors.map((r) => {
                 const rawCurrent: TemperatureReading = {
                     value: r.value,
                     unit: r.unit,
@@ -212,7 +219,7 @@ export class TemperatureService implements OnModuleInit {
                 const rawCurrent = rawHistory[rawHistory.length - 1];
                 const metadata = this.history.getMetadata(sensorId)!;
 
-                if (!rawCurrent) return null;
+                if (!rawCurrent || !Number.isFinite(rawCurrent.value)) return null;
 
                 // Convert for output
                 const current = this.convertReading(rawCurrent, targetUnit) as TemperatureReading;

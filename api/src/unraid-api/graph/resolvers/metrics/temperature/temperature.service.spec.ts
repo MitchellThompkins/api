@@ -485,7 +485,35 @@ describe('TemperatureService', () => {
 
             // Document expected behavior - should either filter out or handle gracefully
             // Current implementation would include it; you may want to filter
+            expect(metrics).toBeNull();
+        });
+
+        it('should handle mix of valid and NaN temperature values', async () => {
+            await service.onModuleInit();
+
+            vi.mocked(lmSensors.read).mockResolvedValue([
+                {
+                    id: 'valid-sensor',
+                    name: 'Good Sensor',
+                    type: SensorType.CPU_CORE,
+                    value: 45,
+                    unit: TemperatureUnit.CELSIUS,
+                },
+                {
+                    id: 'nan-sensor',
+                    name: 'Bad Sensor',
+                    type: SensorType.CUSTOM,
+                    value: NaN,
+                    unit: TemperatureUnit.CELSIUS,
+                },
+            ]);
+
+            const metrics = await service.getMetrics();
+
+            expect(metrics).toBeDefined();
             expect(metrics?.sensors).toHaveLength(1);
+            expect(metrics?.sensors[0].id).toBe('valid-sensor');
+            expect(metrics?.summary.average).toBe(45);
         });
 
         it('should handle all providers failing', async () => {
