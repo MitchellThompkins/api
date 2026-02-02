@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DiskSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/disk_sensors.service.js';
 import { IpmiSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/ipmi_sensors.service.js';
 import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm_sensors.service.js';
+import { TemperatureSensorProvider } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/sensor.interface.js';
 import { TemperatureHistoryService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature_history.service.js';
 import {
     SensorType,
@@ -15,9 +16,9 @@ import { TemperatureService } from '@app/unraid-api/graph/resolvers/metrics/temp
 
 describe('TemperatureService', () => {
     let service: TemperatureService;
-    let lmSensors: LmSensorsService;
-    let diskSensors: DiskSensorsService;
-    let ipmiSensors: IpmiSensorsService;
+    let lmSensors: Partial<TemperatureSensorProvider>;
+    let diskSensors: Partial<TemperatureSensorProvider>;
+    let ipmiSensors: Partial<TemperatureSensorProvider>;
     let history: TemperatureHistoryService;
     let configService: ConfigService;
 
@@ -34,27 +35,34 @@ describe('TemperatureService', () => {
                     unit: TemperatureUnit.CELSIUS,
                 },
             ]),
-        } as any;
+        };
 
         diskSensors = {
             id: 'disk-sensors',
             isAvailable: vi.fn().mockResolvedValue(true),
             read: vi.fn().mockResolvedValue([]),
-        } as any;
+        };
 
         ipmiSensors = {
             id: 'ipmi-sensors',
             isAvailable: vi.fn().mockResolvedValue(false), // Default to unavailable
             read: vi.fn().mockResolvedValue([]),
-        } as any;
+        };
 
-        configService = {
-            get: vi.fn((key: string, defaultValue?: any) => defaultValue),
-        } as any;
+        configService = new ConfigService();
+        vi.spyOn(configService, 'get').mockImplementation(
+            (key: string, defaultValue?: unknown) => defaultValue
+        );
 
         history = new TemperatureHistoryService(configService);
 
-        service = new TemperatureService(lmSensors, diskSensors, ipmiSensors, history, configService);
+        service = new TemperatureService(
+            lmSensors as LmSensorsService,
+            diskSensors as DiskSensorsService,
+            ipmiSensors as IpmiSensorsService,
+            history,
+            configService
+        );
     });
 
     describe('initialization', () => {
@@ -124,23 +132,14 @@ describe('TemperatureService', () => {
         });
 
         it('should use config thresholds when provided', async () => {
-            const customConfigService = {
-                get: vi.fn((key: string, defaultValue?: any) => {
-                    if (key === 'api.temperature.thresholds') {
-                        return { cpu_warning: 60, cpu_critical: 80 };
-                    }
-                    return defaultValue;
-                }),
-            } as any;
+            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
+                if (key === 'api.temperature.thresholds') {
+                    return { cpu_warning: 60, cpu_critical: 80 };
+                }
+                return defaultValue;
+            });
 
-            const customService = new TemperatureService(
-                lmSensors,
-                diskSensors,
-                ipmiSensors,
-                history,
-                customConfigService
-            );
-            await customService.onModuleInit();
+            await service.onModuleInit();
 
             vi.mocked(lmSensors.read).mockResolvedValue([
                 {
@@ -152,7 +151,7 @@ describe('TemperatureService', () => {
                 },
             ]);
 
-            const metrics = await customService.getMetrics();
+            const metrics = await service.getMetrics();
             expect(metrics?.sensors[0].current.status).toBe(TemperatureStatus.WARNING);
         });
 
