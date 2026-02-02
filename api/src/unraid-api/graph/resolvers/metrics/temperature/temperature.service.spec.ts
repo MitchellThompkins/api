@@ -443,7 +443,6 @@ describe('TemperatureService', () => {
             const metrics = await service.getMetrics();
 
             // Document expected behavior - should either filter out or handle gracefully
-            // Current implementation would include it; you may want to filter
             expect(metrics).toBeNull();
         });
 
