@@ -334,7 +334,6 @@ describe('TemperatureService', () => {
 
             const metrics = await service.getMetrics();
 
-            // Should either timeout or complete - document expected behavior
             expect(metrics).toBeDefined();
         }, 10000);
 
@@ -364,8 +363,6 @@ describe('TemperatureService', () => {
 
             const metrics = await service.getMetrics();
 
-            // Document expected behavior - currently allows duplicates
-            // If you want to dedupe, add logic and update this test
             expect(metrics?.sensors.filter((s) => s.id === 'duplicate-sensor')).toHaveLength(2);
         });
 
@@ -385,8 +382,6 @@ describe('TemperatureService', () => {
             const metrics = await service.getMetrics();
 
             expect(metrics?.sensors[0].name).toBe('');
-            // Or if you want to enforce non-empty names:
-            // expect(metrics?.sensors[0].name).toBe('Unknown Sensor');
         });
 
         it('should handle negative temperature values', async () => {
@@ -442,7 +437,6 @@ describe('TemperatureService', () => {
 
             const metrics = await service.getMetrics();
 
-            // Document expected behavior - should either filter out or handle gracefully
             expect(metrics).toBeNull();
         });
 
