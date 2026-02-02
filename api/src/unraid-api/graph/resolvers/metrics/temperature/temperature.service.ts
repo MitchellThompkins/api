@@ -130,13 +130,14 @@ export class TemperatureService implements OnModuleInit {
                 this.configService.get<string>('api.temperature.default_unit') || 'celsius';
             const targetUnit =
                 (TemperatureUnit as any)[configUnit.toUpperCase()] || TemperatureUnit.CELSIUS;
+            const thresholdConfig = this.configService.get('api.temperature.thresholds', {});
 
             const sensors: TemperatureSensor[] = allRawSensors.map((r) => {
                 const rawCurrent: TemperatureReading = {
                     value: r.value,
                     unit: r.unit,
                     timestamp: new Date(),
-                    status: this.computeStatus(r.value, r.unit, r.type),
+                    status: this.computeStatus(r.value, r.unit, r.type, thresholdConfig, targetUnit),
                 };
 
                 // Record in history (ALWAYS RAW)
@@ -157,7 +158,7 @@ export class TemperatureService implements OnModuleInit {
                 const minConverted = this.convertReading(min, targetUnit);
                 const maxConverted = this.convertReading(max, targetUnit);
 
-                const rawThresholds = this.getThresholdsForType(r.type);
+                const rawThresholds = this.getThresholdsForType(r.type, thresholdConfig, targetUnit);
                 const warning = this.convertValue(
                     rawThresholds.warning,
                     TemperatureUnit.CELSIUS,
@@ -202,6 +203,7 @@ export class TemperatureService implements OnModuleInit {
 
         const configUnit = this.configService.get<string>('api.temperature.default_unit') || 'celsius';
         const targetUnit = (TemperatureUnit as any)[configUnit.toUpperCase()] || TemperatureUnit.CELSIUS;
+        const thresholdConfig = this.configService.get('api.temperature.thresholds', {});
 
         const sensors = allSensorIds
             .map((sensorId): TemperatureSensor | null => {
@@ -220,7 +222,11 @@ export class TemperatureService implements OnModuleInit {
                 const minConverted = this.convertReading(min, targetUnit);
                 const maxConverted = this.convertReading(max, targetUnit);
 
-                const rawThresholds = this.getThresholdsForType(metadata.type);
+                const rawThresholds = this.getThresholdsForType(
+                    metadata.type,
+                    thresholdConfig,
+                    targetUnit
+                );
                 const warning = this.convertValue(
                     rawThresholds.warning,
                     TemperatureUnit.CELSIUS,
@@ -313,23 +319,27 @@ export class TemperatureService implements OnModuleInit {
     }
 
     // Make status computation type-aware for future per-type thresholds
-    private computeStatus(value: number, unit: TemperatureUnit, type: SensorType): TemperatureStatus {
+    private computeStatus(
+        value: number,
+        unit: TemperatureUnit,
+        type: SensorType,
+        thresholdConfig: any,
+        sourceUnit: TemperatureUnit
+    ): TemperatureStatus {
         // We always compute status using Celsius thresholds
         const celsiusValue = this.convertValue(value, unit, TemperatureUnit.CELSIUS);
-        const thresholds = this.getThresholdsForType(type);
+        const thresholds = this.getThresholdsForType(type, thresholdConfig, sourceUnit);
 
         if (celsiusValue >= thresholds.critical) return TemperatureStatus.CRITICAL;
         if (celsiusValue >= thresholds.warning) return TemperatureStatus.WARNING;
         return TemperatureStatus.NORMAL;
     }
 
-    private getThresholdsForType(type: SensorType): { warning: number; critical: number } {
-        const thresholds = this.configService.get('api.temperature.thresholds', {});
-        const configUnitStr =
-            this.configService.get<string>('api.temperature.default_unit') || 'celsius';
-        const sourceUnit =
-            (TemperatureUnit as any)[configUnitStr.toUpperCase()] || TemperatureUnit.CELSIUS;
-
+    private getThresholdsForType(
+        type: SensorType,
+        thresholds: any,
+        sourceUnit: TemperatureUnit
+    ): { warning: number; critical: number } {
         const getVal = (val: number | undefined, defaultCelsius: number): number => {
             if (val === undefined || val === null) return defaultCelsius;
             return this.convertValue(val, sourceUnit, TemperatureUnit.CELSIUS);
@@ -349,7 +359,10 @@ export class TemperatureService implements OnModuleInit {
                     critical: getVal(thresholds.disk_critical, 60),
                 };
             default:
-                return { warning: 80, critical: 90 };
+                return {
+                    warning: getVal(thresholds.warning, 80),
+                    critical: getVal(thresholds.critical, 90),
+                };
         }
     }
 
