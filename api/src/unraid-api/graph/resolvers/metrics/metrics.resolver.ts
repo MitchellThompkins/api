@@ -91,9 +91,11 @@ export class MetricsResolver implements OnModuleInit {
                 PUBSUB_CHANNEL.TEMPERATURE_METRICS,
                 async () => {
                     const payload = await this.temperatureService.getMetrics();
-                    pubsub.publish(PUBSUB_CHANNEL.TEMPERATURE_METRICS, {
-                        systemMetricsTemperature: payload,
-                    });
+                    if (payload) {
+                        pubsub.publish(PUBSUB_CHANNEL.TEMPERATURE_METRICS, {
+                            systemMetricsTemperature: payload,
+                        });
+                    }
                 },
                 pollingInterval
             );
@@ -164,6 +166,7 @@ export class MetricsResolver implements OnModuleInit {
     @Subscription(() => TemperatureMetrics, {
         name: 'systemMetricsTemperature',
         resolve: (value) => value.systemMetricsTemperature,
+        nullable: true,
     })
     @UsePermissions({
         action: AuthAction.READ_ANY,
