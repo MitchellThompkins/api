@@ -14,26 +14,37 @@ import {
 } from '@app/unraid-api/graph/resolvers/disks/disks.model.js';
 import { batchProcess } from '@app/utils.js';
 
+interface SmartAttribute {
+    id: number;
+    raw: {
+        value: number;
+    };
+}
+
 @Injectable()
 export class DisksService {
     constructor(private readonly configService: ConfigService) {}
     public async getTemperature(device: string): Promise<number | null> {
         try {
-            // Use -j for JSON output
             const { stdout } = await execa('smartctl', ['-n', 'standby', '-A', '-j', device]);
             const data = JSON.parse(stdout);
 
-            // 1. Try standard temperature object
-            if (data.temperature?.current) {
+            if (data.temperature?.current !== undefined && data.temperature?.current !== null) {
                 return data.temperature.current;
             }
 
-            // 2. Try Attribute 194 or 190
             if (data.ata_smart_attributes?.table) {
                 const tempAttr = data.ata_smart_attributes.table.find(
-                    (a: any) => a.id === 194 || a.id === 190
+                    // Attribute 194: This is the standard SMART attribute ID
+                    // for "Temperature_Celsius" on most hard drives and SSDs
+                    //
+                    // Attribute 190: This is an alternative temperature
+                    // attribute ID used by some drive manufacturers (often
+                    // called "Airflow_Temperature_Celsius" or just another
+                    // temperature reading)
+                    (a: SmartAttribute) => a.id === 194 || a.id === 190
                 );
-                if (tempAttr?.raw?.value) {
+                if (tempAttr?.raw?.value !== undefined && tempAttr?.raw?.value !== null) {
                     return tempAttr.raw.value;
                 }
             }

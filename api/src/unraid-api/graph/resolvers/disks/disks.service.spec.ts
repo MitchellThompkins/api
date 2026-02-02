@@ -632,5 +632,54 @@ describe('DisksService', () => {
             const temperature = await service.getTemperature('/dev/sda');
             expect(temperature).toBeNull();
         });
+
+        it('should return 0 when temperature is 0 degrees', async () => {
+            mockExeca.mockResolvedValue({
+                stdout: JSON.stringify({
+                    temperature: { current: 0 },
+                }),
+                stderr: '',
+                exitCode: 0,
+                failed: false,
+                command: '',
+                cwd: '',
+                isCanceled: false,
+            });
+
+            const temperature = await service.getTemperature('/dev/sda');
+            expect(temperature).toBe(0);
+        });
+
+        it('should return null when temperature is null or undefined', async () => {
+            mockExeca.mockResolvedValue({
+                stdout: JSON.stringify({
+                    temperature: { current: null },
+                }),
+                stderr: '',
+                exitCode: 0,
+                failed: false,
+                command: '',
+                cwd: '',
+                isCanceled: false,
+            });
+
+            const temperature = await service.getTemperature('/dev/sda');
+            expect(temperature).toBeNull();
+
+            mockExeca.mockResolvedValue({
+                stdout: JSON.stringify({
+                    temperature: {},
+                }),
+                stderr: '',
+                exitCode: 0,
+                failed: false,
+                command: '',
+                cwd: '',
+                isCanceled: false,
+            });
+
+            const temperature2 = await service.getTemperature('/dev/sda');
+            expect(temperature2).toBeNull();
+        });
     });
 });
