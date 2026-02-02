@@ -23,9 +23,10 @@ describe('LmSensorsService', () => {
     let configService: ConfigService;
 
     beforeEach(() => {
+        // @ts-expect-error -- mocking partial ConfigService
         configService = {
             get: vi.fn(),
-        } as any;
+        };
 
         service = new LmSensorsService(configService);
         vi.clearAllMocks();
@@ -33,7 +34,8 @@ describe('LmSensorsService', () => {
 
     describe('isAvailable', () => {
         it('should return true when sensors command exists', async () => {
-            vi.mocked(execa).mockResolvedValue({ stdout: 'sensors version 3.6.0' } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: 'sensors version 3.6.0' });
 
             const available = await service.isAvailable();
 
@@ -58,7 +60,8 @@ describe('LmSensorsService', () => {
         it('should use default arguments when no config path is set', async () => {
             // Mock config returning undefined
             vi.mocked(configService.get).mockReturnValue(undefined);
-            vi.mocked(execa).mockResolvedValue({ stdout: '{}' } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: '{}' });
 
             await service.read();
 
@@ -73,7 +76,8 @@ describe('LmSensorsService', () => {
         it('should add -c flag when config path is present', async () => {
             // Mock config returning a path
             vi.mocked(configService.get).mockReturnValue('/etc/my-sensors.conf');
-            vi.mocked(execa).mockResolvedValue({ stdout: '{}' } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: '{}' });
 
             await service.read();
 
@@ -101,7 +105,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -127,7 +132,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -142,7 +148,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -162,7 +169,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -171,13 +179,15 @@ describe('LmSensorsService', () => {
         });
 
         it('should handle malformed JSON', async () => {
-            vi.mocked(execa).mockResolvedValue({ stdout: 'not valid json' } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: 'not valid json' });
 
             await expect(service.read()).rejects.toThrow();
         });
 
         it('should handle empty output', async () => {
-            vi.mocked(execa).mockResolvedValue({ stdout: '{}' } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: '{}' });
 
             const sensors = await service.read();
 
@@ -194,7 +204,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -215,7 +226,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -233,7 +245,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -248,7 +261,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -263,7 +277,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -278,7 +293,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -293,7 +309,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
@@ -308,7 +325,8 @@ describe('LmSensorsService', () => {
                 },
             };
 
-            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) } as any);
+            // @ts-expect-error -- mocking partial execa result
+            vi.mocked(execa).mockResolvedValue({ stdout: JSON.stringify(mockOutput) });
 
             const sensors = await service.read();
 
