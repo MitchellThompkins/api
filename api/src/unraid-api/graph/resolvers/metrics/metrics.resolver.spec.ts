@@ -187,7 +187,7 @@ describe('MetricsResolver', () => {
             } satisfies Pick<TemperatureService, 'getMetrics'>;
 
             const configServiceMock = {
-                get: vi.fn((key: string, defaultValue?: any) => defaultValue),
+                get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
             };
 
             const testModule = new MetricsResolver(
@@ -195,9 +195,9 @@ describe('MetricsResolver', () => {
                 cpuTopologyServiceMock as unknown as CpuTopologyService,
                 memoryService,
                 temperatureServiceMock as unknown as TemperatureService,
-                subscriptionTracker as any,
-                {} as any,
-                configServiceMock as any
+                subscriptionTracker as unknown as SubscriptionTrackerService,
+                {} as unknown as SubscriptionHelperService,
+                configServiceMock as unknown as ConfigService
             );
 
             testModule.onModuleInit();

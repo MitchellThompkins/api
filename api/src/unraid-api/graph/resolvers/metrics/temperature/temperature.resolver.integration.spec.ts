@@ -203,7 +203,8 @@ describe('Temperature GraphQL Integration', () => {
                 summary: mockTemperatureMetrics.summary,
             };
 
-            vi.mocked(temperatureService.getMetrics).mockResolvedValue(multiSensorMetrics as any);
+            // @ts-expect-error -- mocking partial TemperatureMetrics
+            vi.mocked(temperatureService.getMetrics).mockResolvedValue(multiSensorMetrics);
 
             const result = await resolver.temperature();
 
