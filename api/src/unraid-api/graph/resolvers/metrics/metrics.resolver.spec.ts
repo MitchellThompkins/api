@@ -16,7 +16,6 @@ describe('MetricsResolver', () => {
     let resolver: MetricsResolver;
     let cpuService: CpuService;
     let memoryService: MemoryService;
-    let temperatureService: TemperatureService;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
