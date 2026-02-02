@@ -40,15 +40,19 @@ export class LmSensorsService implements TemperatureSensorProvider {
         }
 
         const { stdout } = await execa('sensors', args, { timeout: this.timeoutMs });
-        const data = JSON.parse(stdout) as Record<string, Record<string, unknown>>;
+        const data: unknown = JSON.parse(stdout);
+
+        if (!this.isRecord(data)) return [];
 
         const sensors: RawTemperatureSensor[] = [];
 
         for (const [chipName, chip] of Object.entries(data)) {
-            for (const [label, values] of Object.entries(chip)) {
-                if (label === 'Adapter' || typeof values !== 'object' || values === null) continue;
+            if (!this.isRecord(chip)) continue;
 
-                for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
+            for (const [label, values] of Object.entries(chip)) {
+                if (label === 'Adapter' || !this.isRecord(values)) continue;
+
+                for (const [key, value] of Object.entries(values)) {
                     if (!key.endsWith('_input') || typeof value !== 'number') continue;
 
                     const name = `${chipName} ${label}`;
@@ -65,6 +69,10 @@ export class LmSensorsService implements TemperatureSensorProvider {
         }
 
         return sensors;
+    }
+
+    private isRecord(value: unknown): value is Record<string, unknown> {
+        return typeof value === 'object' && value !== null;
     }
 
     private inferType(name: string): SensorType {
