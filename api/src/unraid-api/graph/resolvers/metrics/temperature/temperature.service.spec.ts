@@ -369,11 +369,7 @@ describe('TemperatureService', () => {
                 () => new Promise((resolve) => setTimeout(() => resolve([]), 1000))
             );
 
-            // If you have timeout logic, test it here
-            // Otherwise, this documents expected behavior
-            const startTime = Date.now();
             const metrics = await service.getMetrics();
-            const elapsed = Date.now() - startTime;
 
             // Should either timeout or complete - document expected behavior
             expect(metrics).toBeDefined();
