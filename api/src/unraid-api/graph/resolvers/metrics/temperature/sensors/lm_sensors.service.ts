@@ -16,12 +16,13 @@ import {
 export class LmSensorsService implements TemperatureSensorProvider {
     readonly id = 'lm-sensors';
     private readonly logger = new Logger(LmSensorsService.name);
+    private readonly timeoutMs = 3000;
 
     constructor(private readonly configService: ConfigService) {}
 
     async isAvailable(): Promise<boolean> {
         try {
-            await execa('sensors', ['--version']);
+            await execa('sensors', ['--version'], { timeout: this.timeoutMs });
             return true;
         } catch {
             return false;
@@ -29,28 +30,25 @@ export class LmSensorsService implements TemperatureSensorProvider {
     }
 
     async read(): Promise<RawTemperatureSensor[]> {
-        // Read the config path from your new configuration structure
         const configPath = this.configService.get<string>(
             'api.temperature.sensors.lm_sensors.config_path'
         );
 
-        // Build arguments: add '-c path' if configPath exists
         const args = ['-j'];
         if (configPath) {
             args.push('-c', configPath);
         }
 
-        const { stdout } = await execa('sensors', args);
-        const data = JSON.parse(stdout);
+        const { stdout } = await execa('sensors', args, { timeout: this.timeoutMs });
+        const data = JSON.parse(stdout) as Record<string, Record<string, unknown>>;
 
         const sensors: RawTemperatureSensor[] = [];
 
-        for (const [chipName, chip] of Object.entries<any>(data)) {
-            for (const [label, values] of Object.entries<any>(chip)) {
-                if (label === 'Adapter') continue;
-                if (typeof values !== 'object') continue;
+        for (const [chipName, chip] of Object.entries(data)) {
+            for (const [label, values] of Object.entries(chip)) {
+                if (label === 'Adapter' || typeof values !== 'object' || values === null) continue;
 
-                for (const [key, value] of Object.entries<any>(values)) {
+                for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
                     if (!key.endsWith('_input') || typeof value !== 'number') continue;
 
                     const name = `${chipName} ${label}`;

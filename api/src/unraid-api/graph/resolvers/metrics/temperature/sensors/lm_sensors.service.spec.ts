@@ -38,7 +38,11 @@ describe('LmSensorsService', () => {
             const available = await service.isAvailable();
 
             expect(available).toBe(true);
-            expect(execa).toHaveBeenCalledWith('sensors', ['--version']);
+            expect(execa).toHaveBeenCalledWith(
+                'sensors',
+                ['--version'],
+                expect.objectContaining({ timeout: 3000 })
+            );
         });
 
         it('should return false when sensors command not found', async () => {
@@ -59,7 +63,11 @@ describe('LmSensorsService', () => {
             await service.read();
 
             // Verify called with defaults
-            expect(execa).toHaveBeenCalledWith('sensors', ['-j']);
+            expect(execa).toHaveBeenCalledWith(
+                'sensors',
+                ['-j'],
+                expect.objectContaining({ timeout: 3000 })
+            );
         });
 
         it('should add -c flag when config path is present', async () => {
@@ -70,7 +78,11 @@ describe('LmSensorsService', () => {
             await service.read();
 
             // Verify called with extra args
-            expect(execa).toHaveBeenCalledWith('sensors', ['-j', '-c', '/etc/my-sensors.conf']);
+            expect(execa).toHaveBeenCalledWith(
+                'sensors',
+                ['-j', '-c', '/etc/my-sensors.conf'],
+                expect.objectContaining({ timeout: 3000 })
+            );
         });
 
         it('should parse sensors JSON output correctly', async () => {
