@@ -235,9 +235,9 @@ export class TemperatureService implements OnModuleInit {
                 const { min, max } = this.history.getMinMax(sensorId);
                 const rawHistory = this.history.getHistory(sensorId);
                 const rawCurrent = rawHistory[rawHistory.length - 1];
-                const metadata = this.history.getMetadata(sensorId)!;
+                const metadata = this.history.getMetadata(sensorId);
 
-                if (!rawCurrent || !Number.isFinite(rawCurrent.value)) return null;
+                if (!rawCurrent || !Number.isFinite(rawCurrent.value) || !metadata) return null;
 
                 // Convert for output
                 const current = this.convertReading(rawCurrent, targetUnit) as TemperatureReading;
