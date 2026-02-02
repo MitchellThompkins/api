@@ -93,7 +93,7 @@ describe('MetricsResolver', () => {
                 {
                     provide: ConfigService,
                     useValue: {
-                        get: vi.fn((key: string, defaultValue?: any) => defaultValue),
+                        get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
                     },
                 },
             ],
