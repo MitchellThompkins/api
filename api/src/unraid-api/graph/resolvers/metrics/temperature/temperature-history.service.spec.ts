@@ -1,8 +1,7 @@
-import { ConfigService } from '@nestjs/config';
-
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { TemperatureHistoryService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature_history.service.js';
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import {
     SensorType,
     TemperatureStatus,
@@ -11,13 +10,17 @@ import {
 
 describe('TemperatureHistoryService', () => {
     let service: TemperatureHistoryService;
-    let configService: ConfigService;
+    let configService: TemperatureConfigService;
 
     beforeEach(() => {
-        // @ts-expect-error -- mocking partial ConfigService
         configService = {
-            get: (key: string, defaultValue?: unknown) => defaultValue,
-        };
+            getConfig: vi.fn().mockReturnValue({
+                history: {
+                    max_readings: 1000,
+                    retention_ms: 86400000,
+                },
+            }),
+        } as unknown as TemperatureConfigService;
 
         service = new TemperatureHistoryService(configService);
     });
@@ -97,13 +100,14 @@ describe('TemperatureHistoryService', () => {
 
     describe('retention and trimming', () => {
         it('should keep only max readings per sensor', () => {
-            // @ts-expect-error -- mocking partial ConfigService
-            const configServiceWithLimit: ConfigService = {
-                get: (key: string, defaultValue?: unknown) => {
-                    if (key === 'api.temperature.history.max_readings') return 3;
-                    return defaultValue;
-                },
-            };
+            const configServiceWithLimit = {
+                getConfig: vi.fn().mockReturnValue({
+                    history: {
+                        max_readings: 3,
+                        retention_ms: 86400000,
+                    },
+                }),
+            } as unknown as TemperatureConfigService;
 
             const limitedService = new TemperatureHistoryService(configServiceWithLimit);
             const metadata = { name: 'CPU', type: SensorType.CPU_CORE };

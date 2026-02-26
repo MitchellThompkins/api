@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config'; // Import ConfigService
 
 import { execa } from 'execa';
 
@@ -7,6 +6,7 @@ import {
     RawTemperatureSensor,
     TemperatureSensorProvider,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/sensor.interface.js';
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import {
     SensorType,
     TemperatureUnit,
@@ -18,7 +18,7 @@ export class LmSensorsService implements TemperatureSensorProvider {
     private readonly logger = new Logger(LmSensorsService.name);
     private readonly timeoutMs = 3000;
 
-    constructor(private readonly configService: ConfigService) {}
+    constructor(private readonly configService: TemperatureConfigService) {}
 
     async isAvailable(): Promise<boolean> {
         try {
@@ -30,9 +30,7 @@ export class LmSensorsService implements TemperatureSensorProvider {
     }
 
     async read(): Promise<RawTemperatureSensor[]> {
-        const configPath = this.configService.get<string>(
-            'api.temperature.sensors.lm_sensors.config_path'
-        );
+        const configPath = this.configService.getConfig().sensors?.lm_sensors?.config_path;
 
         const args = ['-j'];
         if (configPath) {

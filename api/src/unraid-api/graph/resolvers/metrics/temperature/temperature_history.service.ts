@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import {
     SensorType,
     TemperatureReading,
@@ -28,16 +28,10 @@ export class TemperatureHistoryService {
     private readonly maxReadingsPerSensor: number;
     private readonly retentionMs: number;
 
-    constructor(private readonly configService: ConfigService) {
-        this.maxReadingsPerSensor = this.configService.get<number>(
-            'api.temperature.history.max_readings',
-            1000
-        );
-
-        this.retentionMs = this.configService.get<number>(
-            'api.temperature.history.retention_ms',
-            86400000
-        );
+    constructor(private readonly configService: TemperatureConfigService) {
+        const config = this.configService.getConfig();
+        this.maxReadingsPerSensor = config.history?.max_readings ?? 1000;
+        this.retentionMs = config.history?.retention_ms ?? 86400000;
 
         this.logger.log(
             `Temperature history configured: max_readings=${this.maxReadingsPerSensor}, retentionMs=${this.retentionMs}ms`

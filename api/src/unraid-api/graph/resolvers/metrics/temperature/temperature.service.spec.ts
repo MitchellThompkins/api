@@ -67,7 +67,7 @@ describe('TemperatureService', () => {
             thresholds: {},
         });
 
-        history = new TemperatureHistoryService(configService);
+        history = new TemperatureHistoryService(temperatureConfigService);
 
         service = new TemperatureService(
             lmSensors as unknown as LmSensorsService,

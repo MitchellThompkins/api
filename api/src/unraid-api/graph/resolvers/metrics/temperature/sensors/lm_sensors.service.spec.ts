@@ -1,9 +1,8 @@
-import { ConfigService } from '@nestjs/config';
-
 import { execa } from 'execa';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm_sensors.service.js';
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import {
     SensorType,
     TemperatureUnit,
@@ -20,13 +19,18 @@ vi.mock('execa', async (importOriginal) => {
 
 describe('LmSensorsService', () => {
     let service: LmSensorsService;
-    let configService: ConfigService;
+    let configService: TemperatureConfigService;
 
     beforeEach(() => {
-        // @ts-expect-error -- mocking partial ConfigService
         configService = {
-            get: vi.fn(),
-        };
+            getConfig: vi.fn().mockReturnValue({
+                sensors: {
+                    lm_sensors: {
+                        config_path: undefined,
+                    },
+                },
+            }),
+        } as unknown as TemperatureConfigService;
 
         service = new LmSensorsService(configService);
         vi.clearAllMocks();
@@ -58,8 +62,7 @@ describe('LmSensorsService', () => {
 
     describe('read', () => {
         it('should use default arguments when no config path is set', async () => {
-            // Mock config returning undefined
-            vi.mocked(configService.get).mockReturnValue(undefined);
+            // Mock config returning undefined (already set in beforeEach)
             // @ts-expect-error -- mocking partial execa result
             vi.mocked(execa).mockResolvedValue({ stdout: '{}' });
 
@@ -75,7 +78,13 @@ describe('LmSensorsService', () => {
 
         it('should add -c flag when config path is present', async () => {
             // Mock config returning a path
-            vi.mocked(configService.get).mockReturnValue('/etc/my-sensors.conf');
+            vi.mocked(configService.getConfig).mockReturnValue({
+                sensors: {
+                    lm_sensors: {
+                        config_path: '/etc/my-sensors.conf',
+                    },
+                },
+            });
             // @ts-expect-error -- mocking partial execa result
             vi.mocked(execa).mockResolvedValue({ stdout: '{}' });
 

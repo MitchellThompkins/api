@@ -7,6 +7,7 @@ import { CpuTopologyService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu
 import { CpuService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu.service.js';
 import { MemoryService } from '@app/unraid-api/graph/resolvers/info/memory/memory.service.js';
 import { MetricsResolver } from '@app/unraid-api/graph/resolvers/metrics/metrics.resolver.js';
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import {
     SensorType,
     TemperatureMetrics,
@@ -17,6 +18,8 @@ import { TemperatureService } from '@app/unraid-api/graph/resolvers/metrics/temp
 import { SubscriptionHelperService } from '@app/unraid-api/graph/services/subscription-helper.service.js';
 import { SubscriptionManagerService } from '@app/unraid-api/graph/services/subscription-manager.service.js';
 import { SubscriptionTrackerService } from '@app/unraid-api/graph/services/subscription-tracker.service.js';
+
+// ...
 
 describe('Temperature GraphQL Integration', () => {
     let module: TestingModule;
@@ -133,6 +136,12 @@ describe('Temperature GraphQL Integration', () => {
                     provide: ConfigService,
                     useValue: {
                         get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
+                    },
+                },
+                {
+                    provide: TemperatureConfigService,
+                    useValue: {
+                        getConfig: vi.fn().mockReturnValue({ enabled: true, polling_interval: 5000 }),
                     },
                 },
             ],

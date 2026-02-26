@@ -12,6 +12,7 @@ import { CpuService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu.service
 import { MemoryUtilization } from '@app/unraid-api/graph/resolvers/info/memory/memory.model.js';
 import { MemoryService } from '@app/unraid-api/graph/resolvers/info/memory/memory.service.js';
 import { Metrics } from '@app/unraid-api/graph/resolvers/metrics/metrics.model.js';
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import { TemperatureMetrics } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
 import { TemperatureService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.service.js';
 import { SubscriptionHelperService } from '@app/unraid-api/graph/services/subscription-helper.service.js';
@@ -27,7 +28,8 @@ export class MetricsResolver implements OnModuleInit {
         private readonly temperatureService: TemperatureService,
         private readonly subscriptionTracker: SubscriptionTrackerService,
         private readonly subscriptionHelper: SubscriptionHelperService,
-        private readonly configService: ConfigService
+        private readonly configService: ConfigService,
+        private readonly temperatureConfigService: TemperatureConfigService
     ) {}
 
     onModuleInit() {
@@ -83,10 +85,9 @@ export class MetricsResolver implements OnModuleInit {
             2000
         );
 
-        const isTemperatureEnabled = this.configService.get<boolean>('api.temperature.enabled', true);
-        const pollingInterval = this.configService.get<number>('api.temperature.polling_interval', 5000);
+        const { enabled, polling_interval } = this.temperatureConfigService.getConfig();
 
-        if (isTemperatureEnabled) {
+        if (enabled) {
             this.subscriptionTracker.registerTopic(
                 PUBSUB_CHANNEL.TEMPERATURE_METRICS,
                 async () => {
@@ -97,7 +98,7 @@ export class MetricsResolver implements OnModuleInit {
                         });
                     }
                 },
-                pollingInterval
+                polling_interval
             );
         }
     }

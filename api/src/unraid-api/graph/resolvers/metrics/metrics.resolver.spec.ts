@@ -9,6 +9,7 @@ import { CpuTopologyService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu
 import { CpuService } from '@app/unraid-api/graph/resolvers/info/cpu/cpu.service.js';
 import { MemoryService } from '@app/unraid-api/graph/resolvers/info/memory/memory.service.js';
 import { MetricsResolver } from '@app/unraid-api/graph/resolvers/metrics/metrics.resolver.js';
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import {
     TemperatureMetrics,
     TemperatureSummary,
@@ -112,6 +113,12 @@ describe('MetricsResolver', () => {
                         get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
                     },
                 },
+                {
+                    provide: TemperatureConfigService,
+                    useValue: {
+                        getConfig: vi.fn().mockReturnValue({ enabled: true, polling_interval: 5000 }),
+                    },
+                },
             ],
         }).compile();
 
@@ -206,6 +213,10 @@ describe('MetricsResolver', () => {
                 get: vi.fn((key: string, defaultValue?: unknown) => defaultValue),
             };
 
+            const temperatureConfigServiceMock = {
+                getConfig: vi.fn().mockReturnValue({ enabled: true, polling_interval: 5000 }),
+            };
+
             const testModule = new MetricsResolver(
                 cpuService,
                 cpuTopologyServiceMock as unknown as CpuTopologyService,
@@ -213,7 +224,8 @@ describe('MetricsResolver', () => {
                 temperatureServiceMock as unknown as TemperatureService,
                 subscriptionTracker as unknown as SubscriptionTrackerService,
                 {} as unknown as SubscriptionHelperService,
-                configServiceMock as unknown as ConfigService
+                configServiceMock as unknown as ConfigService,
+                temperatureConfigServiceMock as unknown as TemperatureConfigService
             );
 
             testModule.onModuleInit();
@@ -241,9 +253,9 @@ describe('MetricsResolver', () => {
                 getMetrics: vi.fn().mockResolvedValue(null),
             } as unknown as TemperatureService;
 
-            const configServiceMock = {
-                get: vi.fn().mockReturnValue(true), // Enabled
-            } as unknown as ConfigService;
+            const temperatureConfigServiceMock = {
+                getConfig: vi.fn().mockReturnValue({ enabled: true, polling_interval: 5000 }),
+            } as unknown as TemperatureConfigService;
 
             const testModule = new MetricsResolver(
                 {} as CpuService,
@@ -252,7 +264,8 @@ describe('MetricsResolver', () => {
                 temperatureServiceMock,
                 subscriptionTracker,
                 {} as SubscriptionHelperService,
-                configServiceMock
+                {} as ConfigService,
+                temperatureConfigServiceMock
             );
 
             testModule.onModuleInit();
@@ -283,9 +296,9 @@ describe('MetricsResolver', () => {
                 getMetrics: vi.fn().mockResolvedValue(payload),
             } as unknown as TemperatureService;
 
-            const configServiceMock = {
-                get: vi.fn().mockReturnValue(true), // Enabled
-            } as unknown as ConfigService;
+            const temperatureConfigServiceMock = {
+                getConfig: vi.fn().mockReturnValue({ enabled: true, polling_interval: 5000 }),
+            } as unknown as TemperatureConfigService;
 
             const testModule = new MetricsResolver(
                 {} as CpuService,
@@ -294,7 +307,8 @@ describe('MetricsResolver', () => {
                 temperatureServiceMock,
                 subscriptionTracker,
                 {} as SubscriptionHelperService,
-                configServiceMock
+                {} as ConfigService,
+                temperatureConfigServiceMock
             );
 
             testModule.onModuleInit();
