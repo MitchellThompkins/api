@@ -31,7 +31,6 @@ export class IpmiSensorsService implements TemperatureSensorProvider {
 
     async read(): Promise<RawTemperatureSensor[]> {
         // We can add config for arguments if needed, similar to lm-sensors
-        // const extraArgs = this.configService.get('api.temperature.sensors.ipmi.args', []);
 
         try {
             // 'sdr type temperature' returns sensors specifically for temperature
