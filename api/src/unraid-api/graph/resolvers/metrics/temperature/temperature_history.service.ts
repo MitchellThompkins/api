@@ -29,7 +29,7 @@ export class TemperatureHistoryService {
     private readonly retentionMs: number;
 
     constructor(private readonly configService: TemperatureConfigService) {
-        const config = this.configService.getConfig();
+        const config = this.configService.getConfig(false);
         this.maxReadingsPerSensor = config.history?.max_readings ?? 1000;
         this.retentionMs = config.history?.retention_ms ?? 86400000;
 
