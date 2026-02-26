@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import type { ContainerListOptions } from 'dockerode';
 
 import { AppError } from '@app/core/errors/app-error.js';
+import { DockerTemplateScannerService } from '@app/unraid-api/graph/resolvers/docker/docker-template-scanner.service.js';
 import { DockerContainer } from '@app/unraid-api/graph/resolvers/docker/docker.model.js';
 import { DockerService } from '@app/unraid-api/graph/resolvers/docker/docker.service.js';
 import { DockerOrganizerConfigService } from '@app/unraid-api/graph/resolvers/docker/organizer/docker-organizer-config.service.js';
@@ -51,17 +52,14 @@ export class DockerOrganizerService {
     private readonly logger = new Logger(DockerOrganizerService.name);
     constructor(
         private readonly dockerConfigService: DockerOrganizerConfigService,
-        private readonly dockerService: DockerService
+        private readonly dockerService: DockerService,
+        private readonly dockerTemplateScannerService: DockerTemplateScannerService
     ) {}
 
-    async getResources(
-        opts?: Partial<ContainerListOptions> & { skipCache?: boolean }
-    ): Promise<OrganizerV1['resources']> {
-        const { skipCache = false, ...listOptions } = opts ?? {};
-        const containers = await this.dockerService.getContainers({
-            skipCache,
-            ...(listOptions as any),
-        });
+    async getResources(opts?: Partial<ContainerListOptions>): Promise<OrganizerV1['resources']> {
+        const rawContainers = await this.dockerService.getRawContainers(opts);
+        await this.dockerTemplateScannerService.syncMissingContainers(rawContainers);
+        const containers = this.dockerService.enrichWithOrphanStatus(rawContainers);
         return containerListToResourcesObject(containers);
     }
 
@@ -83,20 +81,17 @@ export class DockerOrganizerService {
         return newOrganizer;
     }
 
-    async syncAndGetOrganizer(opts?: { skipCache?: boolean }): Promise<OrganizerV1> {
+    async syncAndGetOrganizer(): Promise<OrganizerV1> {
         let organizer = this.dockerConfigService.getConfig();
-        organizer.resources = await this.getResources(opts);
+        organizer.resources = await this.getResources();
         organizer = await this.syncDefaultView(organizer, organizer.resources);
         organizer = await this.dockerConfigService.validate(organizer);
         this.dockerConfigService.replaceConfig(organizer);
         return organizer;
     }
 
-    async resolveOrganizer(
-        organizer?: OrganizerV1,
-        opts?: { skipCache?: boolean }
-    ): Promise<ResolvedOrganizerV1> {
-        organizer ??= await this.syncAndGetOrganizer(opts);
+    async resolveOrganizer(organizer?: OrganizerV1): Promise<ResolvedOrganizerV1> {
+        organizer ??= await this.syncAndGetOrganizer();
         return resolveOrganizer(organizer);
     }
 

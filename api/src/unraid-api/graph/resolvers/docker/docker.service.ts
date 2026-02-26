@@ -1,7 +1,5 @@
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
-import { type Cache } from 'cache-manager';
 import Docker from 'dockerode';
 import { execa } from 'execa';
 
@@ -26,26 +24,14 @@ import {
 } from '@app/unraid-api/graph/resolvers/docker/docker.model.js';
 import { getDockerClient } from '@app/unraid-api/graph/resolvers/docker/utils/docker-client.js';
 
-interface ContainerListingOptions extends Docker.ContainerListOptions {
-    skipCache: boolean;
-}
-
-interface NetworkListingOptions {
-    skipCache: boolean;
-}
+export type RawDockerContainer = Omit<DockerContainer, 'isOrphaned' | 'templatePath'>;
 
 @Injectable()
 export class DockerService {
     private client: Docker;
     private readonly logger = new Logger(DockerService.name);
 
-    public static readonly CONTAINER_CACHE_KEY = 'docker_containers';
-    public static readonly CONTAINER_WITH_SIZE_CACHE_KEY = 'docker_containers_with_size';
-    public static readonly NETWORK_CACHE_KEY = 'docker_networks';
-    public static readonly CACHE_TTL_SECONDS = 60;
-
     constructor(
-        @Inject(CACHE_MANAGER) private cacheManager: Cache,
         private readonly dockerConfigService: DockerConfigService,
         private readonly dockerManifestService: DockerManifestService,
         private readonly autostartService: DockerAutostartService,
@@ -57,7 +43,7 @@ export class DockerService {
     }
 
     public async getAppInfo() {
-        const containers = await this.getContainers({ skipCache: false });
+        const containers = await this.getContainers();
         const installedCount = containers.length;
         const runningCount = containers.filter(
             (container) => container.state === ContainerState.RUNNING
@@ -79,7 +65,7 @@ export class DockerService {
         return this.autostartService.getAutoStarts();
     }
 
-    public transformContainer(container: Docker.ContainerInfo): Omit<DockerContainer, 'isOrphaned'> {
+    public transformContainer(container: Docker.ContainerInfo): RawDockerContainer {
         const sizeValue = (container as Docker.ContainerInfo & { SizeRootFs?: number }).SizeRootFs;
         const primaryName = this.autostartService.getContainerPrimaryName(container) ?? '';
         const autoStartEntry = primaryName
@@ -107,7 +93,7 @@ export class DockerService {
             };
         });
 
-        const transformed: Omit<DockerContainer, 'isOrphaned'> = {
+        const transformed: RawDockerContainer = {
             id: container.Id,
             names: container.Names,
             image: container.Image,
@@ -141,27 +127,25 @@ export class DockerService {
         return transformed;
     }
 
-    public async getContainers(
-        {
-            skipCache = false,
-            all = true,
-            size = false,
-            ...listOptions
-        }: Partial<ContainerListingOptions> = { skipCache: false }
-    ): Promise<DockerContainer[]> {
-        const cacheKey = size
-            ? DockerService.CONTAINER_WITH_SIZE_CACHE_KEY
-            : DockerService.CONTAINER_CACHE_KEY;
+    public enrichWithOrphanStatus(containers: RawDockerContainer[]): DockerContainer[] {
+        const config = this.dockerConfigService.getConfig();
+        return containers.map((c) => {
+            const containerName = c.names[0]?.replace(/^\//, '').toLowerCase() ?? '';
+            const templatePath = config.templateMappings?.[containerName] || undefined;
+            return {
+                ...c,
+                templatePath,
+                isOrphaned: !templatePath,
+            };
+        });
+    }
 
-        if (!skipCache) {
-            const cachedContainers = await this.cacheManager.get<DockerContainer[]>(cacheKey);
-            if (cachedContainers) {
-                this.logger.debug(`Using docker container cache (${size ? 'with' : 'without'} size)`);
-                return cachedContainers;
-            }
-        }
-
-        this.logger.debug(`Updating docker container cache (${size ? 'with' : 'without'} size)`);
+    public async getRawContainers({
+        all = true,
+        size = false,
+        ...listOptions
+    }: Partial<Docker.ContainerListOptions> = {}): Promise<RawDockerContainer[]> {
+        this.logger.debug(`Fetching docker containers (${size ? 'with' : 'without'} size)`);
         let rawContainers: Docker.ContainerInfo[] = [];
         try {
             rawContainers = await this.client.listContainers({
@@ -174,33 +158,18 @@ export class DockerService {
         }
 
         await this.autostartService.refreshAutoStartEntries();
-        const containers = rawContainers.map((container) => this.transformContainer(container));
-
-        const config = this.dockerConfigService.getConfig();
-        const containersWithTemplatePaths = containers.map((c) => {
-            const containerName = c.names[0]?.replace(/^\//, '').toLowerCase() ?? '';
-            const templatePath = config.templateMappings?.[containerName] || undefined;
-            return {
-                ...c,
-                templatePath,
-                isOrphaned: !templatePath,
-            };
-        });
-
-        await this.cacheManager.set(
-            cacheKey,
-            containersWithTemplatePaths,
-            DockerService.CACHE_TTL_SECONDS * 1000
-        );
-        return containersWithTemplatePaths;
+        return rawContainers.map((container) => this.transformContainer(container));
     }
 
-    public async getPortConflicts({
-        skipCache = false,
-    }: {
-        skipCache?: boolean;
-    } = {}): Promise<DockerPortConflicts> {
-        const containers = await this.getContainers({ skipCache });
+    public async getContainers(
+        options: Partial<Docker.ContainerListOptions> = {}
+    ): Promise<DockerContainer[]> {
+        const raw = await this.getRawContainers(options);
+        return this.enrichWithOrphanStatus(raw);
+    }
+
+    public async getPortConflicts(): Promise<DockerPortConflicts> {
+        const containers = await this.getContainers();
         return this.dockerPortService.calculateConflicts(containers);
     }
 
@@ -219,24 +188,14 @@ export class DockerService {
      * Get all Docker networks
      * @returns All the in/active Docker networks on the system.
      */
-    public async getNetworks(options: NetworkListingOptions): Promise<DockerNetwork[]> {
-        return this.dockerNetworkService.getNetworks(options);
-    }
-
-    public async clearContainerCache(): Promise<void> {
-        await Promise.all([
-            this.cacheManager.del(DockerService.CONTAINER_CACHE_KEY),
-            this.cacheManager.del(DockerService.CONTAINER_WITH_SIZE_CACHE_KEY),
-        ]);
-        this.logger.debug('Invalidated container caches due to external event.');
+    public async getNetworks(): Promise<DockerNetwork[]> {
+        return this.dockerNetworkService.getNetworks();
     }
 
     public async start(id: string): Promise<DockerContainer> {
         const container = this.client.getContainer(id);
         await container.start();
-        await this.clearContainerCache();
-        this.logger.debug(`Invalidated container caches after starting ${id}`);
-        const containers = await this.getContainers({ skipCache: true });
+        const containers = await this.getContainers();
         const updatedContainer = containers.find((c) => c.id === id);
         if (!updatedContainer) {
             throw new Error(`Container ${id} not found after starting`);
@@ -265,8 +224,6 @@ export class DockerService {
                 }
             }
 
-            await this.clearContainerCache();
-            this.logger.debug(`Invalidated container caches after removing ${id}`);
             const appInfo = await this.getAppInfo();
             await pubsub.publish(PUBSUB_CHANNEL.INFO, appInfo);
             return true;
@@ -280,22 +237,19 @@ export class DockerService {
         entries: DockerAutostartEntryInput[],
         options?: { persistUserPreferences?: boolean }
     ): Promise<void> {
-        const containers = await this.getContainers({ skipCache: true });
+        const containers = await this.getContainers();
         await this.autostartService.updateAutostartConfiguration(entries, containers, options);
-        await this.clearContainerCache();
     }
 
     public async stop(id: string): Promise<DockerContainer> {
         const container = this.client.getContainer(id);
         await container.stop({ t: 10 });
-        await this.clearContainerCache();
-        this.logger.debug(`Invalidated container caches after stopping ${id}`);
 
-        let containers = await this.getContainers({ skipCache: true });
+        let containers = await this.getContainers();
         let updatedContainer: DockerContainer | undefined;
         for (let i = 0; i < 5; i++) {
             await sleep(500);
-            containers = await this.getContainers({ skipCache: true });
+            containers = await this.getContainers();
             updatedContainer = containers.find((c) => c.id === id);
             this.logger.debug(
                 `Container ${id} state after stop attempt ${i + 1}: ${updatedContainer?.state}`
@@ -318,14 +272,12 @@ export class DockerService {
     public async pause(id: string): Promise<DockerContainer> {
         const container = this.client.getContainer(id);
         await container.pause();
-        await this.cacheManager.del(DockerService.CONTAINER_CACHE_KEY);
-        this.logger.debug(`Invalidated container cache after pausing ${id}`);
 
-        let containers = await this.getContainers({ skipCache: true });
+        let containers: DockerContainer[];
         let updatedContainer: DockerContainer | undefined;
         for (let i = 0; i < 5; i++) {
             await sleep(500);
-            containers = await this.getContainers({ skipCache: true });
+            containers = await this.getContainers();
             updatedContainer = containers.find((c) => c.id === id);
             this.logger.debug(
                 `Container ${id} state after pause attempt ${i + 1}: ${updatedContainer?.state}`
@@ -346,14 +298,12 @@ export class DockerService {
     public async unpause(id: string): Promise<DockerContainer> {
         const container = this.client.getContainer(id);
         await container.unpause();
-        await this.cacheManager.del(DockerService.CONTAINER_CACHE_KEY);
-        this.logger.debug(`Invalidated container cache after unpausing ${id}`);
 
-        let containers = await this.getContainers({ skipCache: true });
+        let containers: DockerContainer[];
         let updatedContainer: DockerContainer | undefined;
         for (let i = 0; i < 5; i++) {
             await sleep(500);
-            containers = await this.getContainers({ skipCache: true });
+            containers = await this.getContainers();
             updatedContainer = containers.find((c) => c.id === id);
             this.logger.debug(
                 `Container ${id} state after unpause attempt ${i + 1}: ${updatedContainer?.state}`
@@ -372,7 +322,7 @@ export class DockerService {
     }
 
     public async updateContainer(id: string): Promise<DockerContainer> {
-        const containers = await this.getContainers({ skipCache: true });
+        const containers = await this.getContainers();
         const container = containers.find((c) => c.id === id);
         if (!container) {
             throw new Error(`Container ${id} not found`);
@@ -396,10 +346,7 @@ export class DockerService {
             throw new Error(`Failed to update container ${containerName}`);
         }
 
-        await this.clearContainerCache();
-        this.logger.debug(`Invalidated container caches after updating ${id}`);
-
-        const updatedContainers = await this.getContainers({ skipCache: true });
+        const updatedContainers = await this.getContainers();
         const updatedContainer = updatedContainers.find(
             (c) => c.names?.some((name) => name.replace(/^\//, '') === containerName) || c.id === id
         );
@@ -426,7 +373,7 @@ export class DockerService {
      * Updates every container with an available update. Mirrors the legacy webgui "Update All" flow.
      */
     public async updateAllContainers(): Promise<DockerContainer[]> {
-        const containers = await this.getContainers({ skipCache: true });
+        const containers = await this.getContainers();
         if (!containers.length) {
             return [];
         }
