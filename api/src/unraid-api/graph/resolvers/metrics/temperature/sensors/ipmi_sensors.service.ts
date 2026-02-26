@@ -55,13 +55,12 @@ export class IpmiSensorsService implements TemperatureSensorProvider {
         // System Temp      | 35 degrees C      | ok
 
         for (const line of lines) {
-            const parts = line.split('|').map((s) => s.trim());
-            if (parts.length < 2) continue;
+            const [name, reading] = line.split('|').map((s) => s.trim());
 
-            const name = parts[0];
-            const readingParts = parts[1].split(' ');
-            const valueStr = readingParts[0];
-            const unitStr = readingParts.slice(1).join(' '); // "degrees C"
+            if (!name || reading === undefined) continue;
+
+            const [valueStr, ...unitParts] = reading.split(' ');
+            const unitStr = unitParts.join(' ');
 
             const value = parseFloat(valueStr);
 
@@ -75,10 +74,10 @@ export class IpmiSensorsService implements TemperatureSensorProvider {
 
             sensors.push({
                 id: `ipmi:${name.replace(/\s+/g, '_').toLowerCase()}`,
-                name: name,
+                name,
                 type: this.inferType(name),
-                value: value,
-                unit: unit,
+                value,
+                unit,
             });
         }
 
