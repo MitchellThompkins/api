@@ -27,7 +27,13 @@ export class TemperatureConfigService extends ConfigFilePersister<TemperatureCon
 
     defaultConfig(): TemperatureConfig {
         return {
+            enabled: true,
+            polling_interval: 5000,
             default_unit: TemperatureUnit.CELSIUS,
+            history: {
+                max_readings: 100,
+                retention_ms: 86400000,
+            },
             sensors: {
                 lm_sensors: { enabled: true, config_path: '' },
                 smartctl: { enabled: true },
