@@ -26,7 +26,7 @@ describe('TemperatureService', () => {
 
     beforeEach(async () => {
         lmSensors = {
-            id: 'lm-sensors',
+            id: 'LinuxMonitorSensorService',
             isAvailable: vi.fn().mockResolvedValue(true),
             read: vi.fn().mockResolvedValue([
                 {

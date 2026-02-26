@@ -14,7 +14,7 @@ import {
 
 @Injectable()
 export class LmSensorsService implements TemperatureSensorProvider {
-    readonly id = 'lm-sensors';
+    readonly id = 'LinuxMonitorSensorService';
     private readonly logger = new Logger(LmSensorsService.name);
     private readonly timeoutMs = 3000;
 
