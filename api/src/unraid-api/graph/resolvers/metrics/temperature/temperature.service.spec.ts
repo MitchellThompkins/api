@@ -7,6 +7,7 @@ import { IpmiSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temp
 import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm_sensors.service.js';
 import { TemperatureSensorProvider } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/sensor.interface.js';
 import { TemperatureHistoryService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature_history.service.js';
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import {
     SensorType,
     TemperatureStatus,
@@ -21,6 +22,7 @@ describe('TemperatureService', () => {
     let ipmiSensors: Partial<TemperatureSensorProvider>;
     let history: TemperatureHistoryService;
     let configService: ConfigService;
+    let temperatureConfigService: TemperatureConfigService;
 
     beforeEach(async () => {
         lmSensors = {
@@ -54,6 +56,17 @@ describe('TemperatureService', () => {
             (key: string, defaultValue?: unknown) => defaultValue
         );
 
+        temperatureConfigService = Object.create(TemperatureConfigService.prototype);
+        temperatureConfigService.getConfig = vi.fn().mockReturnValue({
+            default_unit: 'celsius',
+            sensors: {
+                lm_sensors: { enabled: true },
+                smartctl: { enabled: true },
+                ipmi: { enabled: false }, // matching default mock
+            },
+            thresholds: {},
+        });
+
         history = new TemperatureHistoryService(configService);
 
         service = new TemperatureService(
@@ -61,7 +74,7 @@ describe('TemperatureService', () => {
             diskSensors as unknown as DiskSensorsService,
             ipmiSensors as unknown as IpmiSensorsService,
             history,
-            configService
+            temperatureConfigService
         );
     });
 
@@ -108,7 +121,7 @@ describe('TemperatureService', () => {
                 diskSensors as unknown as DiskSensorsService,
                 ipmiSensors as unknown as IpmiSensorsService,
                 history,
-                configService
+                temperatureConfigService
             );
             await emptyService.onModuleInit();
 
@@ -132,11 +145,14 @@ describe('TemperatureService', () => {
         });
 
         it('should use config thresholds when provided', async () => {
-            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
-                if (key === 'api.temperature.thresholds') {
-                    return { cpu_warning: 60, cpu_critical: 80 };
-                }
-                return defaultValue;
+            temperatureConfigService.getConfig = vi.fn().mockReturnValue({
+                default_unit: 'celsius',
+                sensors: {
+                    lm_sensors: { enabled: true },
+                    smartctl: { enabled: true },
+                    ipmi: { enabled: false },
+                },
+                thresholds: { cpu_warning: 60, cpu_critical: 80 },
             });
 
             await service.onModuleInit();
@@ -156,11 +172,14 @@ describe('TemperatureService', () => {
         });
 
         it('should return temperature metrics in Kelvin when configured', async () => {
-            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
-                if (key === 'api.temperature.default_unit') {
-                    return 'kelvin';
-                }
-                return defaultValue;
+            temperatureConfigService.getConfig = vi.fn().mockReturnValue({
+                default_unit: 'kelvin',
+                sensors: {
+                    lm_sensors: { enabled: true },
+                    smartctl: { enabled: true },
+                    ipmi: { enabled: false },
+                },
+                thresholds: {},
             });
 
             await service.onModuleInit();
@@ -181,11 +200,14 @@ describe('TemperatureService', () => {
         });
 
         it('should return temperature metrics in Rankine when configured', async () => {
-            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
-                if (key === 'api.temperature.default_unit') {
-                    return 'rankine';
-                }
-                return defaultValue;
+            temperatureConfigService.getConfig = vi.fn().mockReturnValue({
+                default_unit: 'rankine',
+                sensors: {
+                    lm_sensors: { enabled: true },
+                    smartctl: { enabled: true },
+                    ipmi: { enabled: false },
+                },
+                thresholds: {},
             });
 
             await service.onModuleInit();
@@ -207,11 +229,14 @@ describe('TemperatureService', () => {
         });
 
         it('should return thresholds in the target unit', async () => {
-            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
-                if (key === 'api.temperature.default_unit') {
-                    return 'fahrenheit';
-                }
-                return defaultValue;
+            temperatureConfigService.getConfig = vi.fn().mockReturnValue({
+                default_unit: 'fahrenheit',
+                sensors: {
+                    lm_sensors: { enabled: true },
+                    smartctl: { enabled: true },
+                    ipmi: { enabled: false },
+                },
+                thresholds: {},
             });
 
             await service.onModuleInit();
@@ -234,15 +259,14 @@ describe('TemperatureService', () => {
         });
 
         it('should interpret user-defined thresholds in the default unit', async () => {
-            vi.spyOn(configService, 'get').mockImplementation((key: string, defaultValue?: unknown) => {
-                if (key === 'api.temperature.default_unit') {
-                    return 'fahrenheit';
-                }
-                if (key === 'api.temperature.thresholds') {
-                    // User sets warning to 160F (approx 71.1C)
-                    return { cpu_warning: 160 };
-                }
-                return defaultValue;
+            temperatureConfigService.getConfig = vi.fn().mockReturnValue({
+                default_unit: 'fahrenheit',
+                sensors: {
+                    lm_sensors: { enabled: true },
+                    smartctl: { enabled: true },
+                    ipmi: { enabled: false },
+                },
+                thresholds: { cpu_warning: 160 },
             });
 
             await service.onModuleInit();

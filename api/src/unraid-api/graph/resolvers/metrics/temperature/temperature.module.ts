@@ -6,11 +6,13 @@ import { DiskSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temp
 import { IpmiSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/ipmi_sensors.service.js';
 import { LmSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/lm_sensors.service.js';
 import { TemperatureHistoryService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature_history.service.js';
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import { TemperatureService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.service.js';
 
 @Module({
     imports: [DisksModule],
     providers: [
+        TemperatureConfigService,
         TemperatureService,
         LmSensorsService,
         DiskSensorsService,
@@ -19,6 +21,6 @@ import { TemperatureService } from '@app/unraid-api/graph/resolvers/metrics/temp
         // GpuSensorsService,
         TemperatureHistoryService,
     ],
-    exports: [TemperatureService],
+    exports: [TemperatureService, TemperatureConfigService],
 })
 export class TemperatureModule {}

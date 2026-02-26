@@ -3,9 +3,7 @@
   "extraOrigins": [],
   "sandbox": true,
   "ssoSubIds": [],
-  "plugins": [
-    "unraid-api-plugin-connect"
-  ],
+  "plugins": [],
   "temperature": {
     "enabled": true,
     "polling_interval": 5000,

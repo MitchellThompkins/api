@@ -1,5 +1,4 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 
 import { DiskSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/disk_sensors.service.js';
 import { IpmiSensorsService } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/ipmi_sensors.service.js';
@@ -9,6 +8,8 @@ import {
     TemperatureSensorProvider,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/sensors/sensor.interface.js';
 import { TemperatureHistoryService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature_history.service.js';
+import { TemperatureThresholdsConfig } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.model.js';
+import { TemperatureConfigService } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature-config.service.js';
 import {
     SensorType,
     TemperatureMetrics,
@@ -17,15 +18,6 @@ import {
     TemperatureStatus,
     TemperatureUnit,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
-
-interface TemperatureThresholds {
-    cpu_warning?: number;
-    cpu_critical?: number;
-    disk_warning?: number;
-    disk_critical?: number;
-    warning?: number;
-    critical?: number;
-}
 
 // temperature.service.ts
 @Injectable()
@@ -45,7 +37,7 @@ export class TemperatureService implements OnModuleInit {
 
         // Future: private readonly gpuSensors: GpuSensorsService,
         private readonly history: TemperatureHistoryService,
-        private readonly configService: ConfigService
+        private readonly configService: TemperatureConfigService
     ) {}
 
     async onModuleInit() {
@@ -55,9 +47,10 @@ export class TemperatureService implements OnModuleInit {
 
     private async initializeProviders(): Promise<void> {
         // 1. Get sensor specific configs
-        const lmSensorsConfig = this.configService.get('api.temperature.sensors.lm_sensors');
-        const smartctlConfig = this.configService.get('api.temperature.sensors.smartctl');
-        const ipmiConfig = this.configService.get('api.temperature.sensors.ipmi');
+        const config = this.configService.getConfig(false);
+        const lmSensorsConfig = config?.sensors?.lm_sensors;
+        const smartctlConfig = config?.sensors?.smartctl;
+        const ipmiConfig = config?.sensors?.ipmi;
 
         // 2. Define providers with their config checks
         // We default to TRUE if the config is missing
@@ -142,15 +135,11 @@ export class TemperatureService implements OnModuleInit {
                 return null;
             }
 
-            const configUnit =
-                this.configService.get<string>('api.temperature.default_unit') || 'celsius';
+            const configUnit = this.configService.getConfig(false)?.default_unit || 'celsius';
             const targetUnit =
                 TemperatureUnit[configUnit.toUpperCase() as keyof typeof TemperatureUnit] ||
                 TemperatureUnit.CELSIUS;
-            const thresholdConfig = this.configService.get<TemperatureThresholds>(
-                'api.temperature.thresholds',
-                {}
-            );
+            const thresholdConfig = this.configService.getConfig(false)?.thresholds || {};
 
             const sensors: TemperatureSensor[] = validSensors.map((r) => {
                 const rawCurrent: TemperatureReading = {
@@ -221,14 +210,11 @@ export class TemperatureService implements OnModuleInit {
             return null;
         }
 
-        const configUnit = this.configService.get<string>('api.temperature.default_unit') || 'celsius';
+        const configUnit = this.configService.getConfig(false)?.default_unit || 'celsius';
         const targetUnit =
             TemperatureUnit[configUnit.toUpperCase() as keyof typeof TemperatureUnit] ||
             TemperatureUnit.CELSIUS;
-        const thresholdConfig = this.configService.get<TemperatureThresholds>(
-            'api.temperature.thresholds',
-            {}
-        );
+        const thresholdConfig = this.configService.getConfig(false)?.thresholds || {};
 
         const sensors = allSensorIds
             .map((sensorId): TemperatureSensor | null => {
@@ -348,7 +334,7 @@ export class TemperatureService implements OnModuleInit {
         value: number,
         unit: TemperatureUnit,
         type: SensorType,
-        thresholdConfig: TemperatureThresholds,
+        thresholdConfig: TemperatureThresholdsConfig,
         sourceUnit: TemperatureUnit
     ): TemperatureStatus {
         // We always compute status using Celsius thresholds
@@ -362,7 +348,7 @@ export class TemperatureService implements OnModuleInit {
 
     private getThresholdsForType(
         type: SensorType,
-        thresholds: TemperatureThresholds,
+        thresholds: TemperatureThresholdsConfig,
         sourceUnit: TemperatureUnit
     ): { warning: number; critical: number } {
         const getVal = (val: number | undefined, defaultCelsius: number): number => {
