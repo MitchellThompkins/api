@@ -98,6 +98,16 @@ export class TemperatureHistoryConfig {
 
 @ObjectType()
 export class TemperatureConfig {
+    @Field({ nullable: true })
+    @IsBoolean()
+    @IsOptional()
+    enabled?: boolean;
+
+    @Field(() => Int, { nullable: true })
+    @IsNumber()
+    @IsOptional()
+    polling_interval?: number;
+
     @Field(() => TemperatureUnit, { nullable: true })
     @IsEnum(TemperatureUnit)
     @IsOptional()
