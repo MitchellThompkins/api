@@ -1,6 +1,7 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides architectural guidance and coding standards for AI agents
+interacting with this repository."
 
 ## Project Overview
 
