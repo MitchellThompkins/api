@@ -146,7 +146,6 @@ export abstract class ConfigFilePersister<T extends object>
    */
   async onModuleDestroy() {
     this.configObserver?.unsubscribe();
-    await this.persist();
   }
 
   /**
