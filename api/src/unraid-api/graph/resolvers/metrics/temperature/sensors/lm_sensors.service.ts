@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import { execa } from 'execa';
+import { z } from 'zod';
 
 import {
     RawTemperatureSensor,
@@ -11,6 +12,8 @@ import {
     SensorType,
     TemperatureUnit,
 } from '@app/unraid-api/graph/resolvers/metrics/temperature/temperature.model.js';
+
+const LmSensorsSchema = z.record(z.string(), z.record(z.string(), z.unknown()));
 
 @Injectable()
 export class LmSensorsService implements TemperatureSensorProvider {
@@ -38,19 +41,18 @@ export class LmSensorsService implements TemperatureSensorProvider {
         }
 
         const { stdout } = await execa('sensors', args, { timeout: this.timeoutMs });
-        const data: unknown = JSON.parse(stdout);
+        const parsedData = LmSensorsSchema.safeParse(JSON.parse(stdout));
 
-        if (!this.isRecord(data)) return [];
+        if (!parsedData.success) return [];
 
+        const data = parsedData.data;
         const sensors: RawTemperatureSensor[] = [];
 
         for (const [chipName, chip] of Object.entries(data)) {
-            if (!this.isRecord(chip)) continue;
-
             for (const [label, values] of Object.entries(chip)) {
-                if (label === 'Adapter' || !this.isRecord(values)) continue;
+                if (label === 'Adapter' || typeof values !== 'object' || values === null) continue;
 
-                for (const [key, value] of Object.entries(values)) {
+                for (const [key, value] of Object.entries(values as Record<string, unknown>)) {
                     if (!key.endsWith('_input') || typeof value !== 'number') continue;
 
                     const name = `${chipName} ${label}`;
@@ -67,10 +69,6 @@ export class LmSensorsService implements TemperatureSensorProvider {
         }
 
         return sensors;
-    }
-
-    private isRecord(value: unknown): value is Record<string, unknown> {
-        return typeof value === 'object' && value !== null;
     }
 
     private inferType(name: string): SensorType {

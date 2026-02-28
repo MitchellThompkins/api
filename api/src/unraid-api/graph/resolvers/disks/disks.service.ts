@@ -4,6 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import type { Systeminformation } from 'systeminformation';
 import { execa } from 'execa';
 import { blockDevices, diskLayout } from 'systeminformation';
+import { z } from 'zod';
 
 import { ArrayDisk } from '@app/unraid-api/graph/resolvers/array/array.model.js';
 import {
@@ -14,12 +15,32 @@ import {
 } from '@app/unraid-api/graph/resolvers/disks/disks.model.js';
 import { batchProcess } from '@app/utils.js';
 
-interface SmartAttribute {
-    id: number;
-    raw: {
-        value: number;
-    };
-}
+const SmartAttributeSchema = z.object({
+    id: z.number(),
+    raw: z
+        .object({
+            value: z.number(),
+        })
+        .optional()
+        .nullable(),
+});
+
+type SmartAttribute = z.infer<typeof SmartAttributeSchema>;
+
+const SmartDataSchema = z.object({
+    temperature: z
+        .object({
+            current: z.number().optional().nullable(),
+        })
+        .optional()
+        .nullable(),
+    ata_smart_attributes: z
+        .object({
+            table: z.array(SmartAttributeSchema).optional().nullable(),
+        })
+        .optional()
+        .nullable(),
+});
 
 @Injectable()
 export class DisksService {
@@ -27,7 +48,12 @@ export class DisksService {
     public async getTemperature(device: string): Promise<number | null> {
         try {
             const { stdout } = await execa('smartctl', ['-n', 'standby', '-A', '-j', device]);
-            const data = JSON.parse(stdout);
+            const parsedData = SmartDataSchema.safeParse(JSON.parse(stdout));
+
+            if (!parsedData.success) {
+                return null;
+            }
+            const data = parsedData.data;
 
             if (data.temperature?.current !== undefined && data.temperature?.current !== null) {
                 return data.temperature.current;
